@@ -1,0 +1,3 @@
+# This directory contains expected output files for e2e tests.
+# PNG files will be generated during test development and committed
+# for regression testing purposes.

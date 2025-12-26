@@ -94,12 +94,36 @@ setup: install-deps install-hooks
     set -euo pipefail
     echo "Setup complete."
 
-# Run unit tests with coverage report
+# Run all tests with coverage report
 test:
     #!/usr/bin/env bash
     set -euo pipefail
     poetry run coverage run -m pytest -q
     poetry run coverage report -m
+
+# Run only unit tests
+test-unit:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    poetry run pytest tests/unit/ -v
+
+# Run only integration tests
+test-integration:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    poetry run pytest tests/integration/ -v
+
+# Run only end-to-end tests
+test-e2e:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    poetry run pytest tests/e2e/ -v
+
+# Run e2e tests excluding slow tests
+test-e2e-fast:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    poetry run pytest tests/e2e/ -v -m "not slow"
 
 # Static type checking
 typecheck:

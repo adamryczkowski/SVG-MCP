@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <title>Deep Nesting Test</title>
+  <desc>SVG with 50 levels of nested groups for edge case testing</desc>
+  <g id="level0">
+    <g id="level1">
+      <g id="level2">
+        <g id="level3">
+          <g id="level4">
+            <g id="level5">
+              <g id="level6">
+                <g id="level7">
+                  <g id="level8">
+                    <g id="level9">
+                      <g id="level10">
+                        <g id="level11">
+                          <g id="level12">
+                            <g id="level13">
+                              <g id="level14">
+                                <g id="level15">
+                                  <g id="level16">
+                                    <g id="level17">
+                                      <g id="level18">
+                                        <g id="level19">
+                                          <g id="level20">
+                                            <g id="level21">
+                                              <g id="level22">
+                                                <g id="level23">
+                                                  <g id="level24">
+                                                    <g id="level25">
+                                                      <g id="level26">
+                                                        <g id="level27">
+                                                          <g id="level28">
+                                                            <g id="level29">
+                                                              <g id="level30">
+                                                                <g id="level31">
+                                                                  <g id="level32">
+                                                                    <g id="level33">
+                                                                      <g id="level34">
+                                                                        <g id="level35">
+                                                                          <g id="level36">
+                                                                            <g id="level37">
+                                                                              <g id="level38">
+                                                                                <g id="level39">
+                                                                                  <g id="level40">
+                                                                                    <g id="level41">
+                                                                                      <g id="level42">
+                                                                                        <g id="level43">
+                                                                                          <g id="level44">
+                                                                                            <g id="level45">
+                                                                                              <g id="level46">
+                                                                                                <g id="level47">
+                                                                                                  <g id="level48">
+                                                                                                    <g id="level49">
+                                                                                                      <rect x="40" y="40" width="20" height="20" fill="red"/>
+                                                                                                    </g>
+                                                                                                  </g>
+                                                                                                </g>
+                                                                                              </g>
+                                                                                            </g>
+                                                                                          </g>
+                                                                                        </g>
+                                                                                      </g>
+                                                                                    </g>
+                                                                                  </g>
+                                                                                </g>
+                                                                              </g>
+                                                                            </g>
+                                                                          </g>
+                                                                        </g>
+                                                                      </g>
+                                                                    </g>
+                                                                  </g>
+                                                                </g>
+                                                              </g>
+                                                            </g>
+                                                          </g>
+                                                        </g>
+                                                      </g>
+                                                    </g>
+                                                  </g>
+                                                </g>
+                                              </g>
+                                            </g>
+                                          </g>
+                                        </g>
+                                      </g>
+                                    </g>
+                                  </g>
+                                </g>
+                              </g>
+                            </g>
+                          </g>
+                        </g>
+                      </g>
+                    </g>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

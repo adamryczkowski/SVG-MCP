@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <title>Sales Chart V1</title>
+  <desc>A simple bar chart showing quarterly sales data</desc>
+
+  <!-- Background -->
+  <rect width="400" height="300" fill="#f5f5f5"/>
+
+  <!-- Chart area -->
+  <g transform="translate(50, 30)">
+    <!-- Title -->
+    <text x="150" y="0" text-anchor="middle" font-size="18" font-weight="bold" fill="#333">
+      Quarterly Sales 2025
+    </text>
+
+    <!-- Y-axis -->
+    <line x1="0" y1="20" x2="0" y2="220" stroke="#333" stroke-width="2"/>
+
+    <!-- X-axis -->
+    <line x1="0" y1="220" x2="300" y2="220" stroke="#333" stroke-width="2"/>
+
+    <!-- Y-axis labels -->
+    <text x="-10" y="220" text-anchor="end" font-size="10" fill="#666">0</text>
+    <text x="-10" y="170" text-anchor="end" font-size="10" fill="#666">25</text>
+    <text x="-10" y="120" text-anchor="end" font-size="10" fill="#666">50</text>
+    <text x="-10" y="70" text-anchor="end" font-size="10" fill="#666">75</text>
+    <text x="-10" y="20" text-anchor="end" font-size="10" fill="#666">100</text>
+
+    <!-- Grid lines -->
+    <g stroke="#ddd" stroke-width="1">
+      <line x1="0" y1="170" x2="300" y2="170"/>
+      <line x1="0" y1="120" x2="300" y2="120"/>
+      <line x1="0" y1="70" x2="300" y2="70"/>
+      <line x1="0" y1="20" x2="300" y2="20"/>
+    </g>
+
+    <!-- Bars -->
+    <g>
+      <!-- Q1 -->
+      <rect x="20" y="100" width="50" height="120" fill="#4285f4"/>
+      <text x="45" y="240" text-anchor="middle" font-size="12" fill="#333">Q1</text>
+
+      <!-- Q2 -->
+      <rect x="90" y="70" width="50" height="150" fill="#34a853"/>
+      <text x="115" y="240" text-anchor="middle" font-size="12" fill="#333">Q2</text>
+
+      <!-- Q3 -->
+      <rect x="160" y="50" width="50" height="170" fill="#fbbc04"/>
+      <text x="185" y="240" text-anchor="middle" font-size="12" fill="#333">Q3</text>
+
+      <!-- Q4 -->
+      <rect x="230" y="30" width="50" height="190" fill="#ea4335"/>
+      <text x="255" y="240" text-anchor="middle" font-size="12" fill="#333">Q4</text>
+    </g>
+  </g>
+</svg>

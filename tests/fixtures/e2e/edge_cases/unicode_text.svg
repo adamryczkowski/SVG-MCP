@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <title>Unicode Text Test</title>
+  <desc>SVG with various Unicode characters including emoji, CJK, RTL, and special symbols</desc>
+
+  <rect width="400" height="300" fill="#f5f5f5"/>
+
+  <!-- Latin with diacritics -->
+  <text x="20" y="30" font-size="14" fill="#333">
+    Café résumé naïve Zürich
+  </text>
+
+  <!-- CJK Characters -->
+  <text x="20" y="60" font-size="14" fill="#333">
+    中文测试 日本語テスト 한국어 테스트
+  </text>
+
+  <!-- Arabic (RTL) -->
+  <text x="380" y="90" font-size="14" fill="#333" text-anchor="end" direction="rtl">
+    مرحبا بالعالم العربي
+  </text>
+
+  <!-- Hebrew (RTL) -->
+  <text x="380" y="120" font-size="14" fill="#333" text-anchor="end" direction="rtl">
+    שלום עולם
+  </text>
+
+  <!-- Cyrillic -->
+  <text x="20" y="150" font-size="14" fill="#333">
+    Привет мир! Здравствуй!
+  </text>
+
+  <!-- Greek -->
+  <text x="20" y="180" font-size="14" fill="#333">
+    Γειά σου κόσμε! Ελληνικά
+  </text>
+
+  <!-- Emoji -->
+  <text x="20" y="210" font-size="14" fill="#333">
+    Emoji: 🌍 🎉 ✨ 🚀 💻 🔥 ❤️ 👍
+  </text>
+
+  <!-- Mathematical symbols -->
+  <text x="20" y="240" font-size="14" fill="#333">
+    Math: ∑ ∏ ∫ √ ∞ ≠ ≤ ≥ ± × ÷
+  </text>
+
+  <!-- Currency symbols -->
+  <text x="20" y="270" font-size="14" fill="#333">
+    Currency: $ € £ ¥ ₹ ₽ ₿ ฿ ₩
+  </text>
+
+  <!-- Special characters -->
+  <text x="20" y="295" font-size="12" fill="#666">
+    Special: © ® ™ § ¶ † ‡ • ◦ ‣
+  </text>
+</svg>

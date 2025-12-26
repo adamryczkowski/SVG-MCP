@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 300">
+  <title>System Architecture Diagram</title>
+  <desc>A flowchart showing system components and their connections</desc>
+
+  <!-- Background -->
+  <rect width="500" height="300" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="250" y="25" text-anchor="middle" font-size="16" font-weight="bold" fill="#333">
+    System Architecture
+  </text>
+
+  <!-- Client Box -->
+  <g transform="translate(50, 60)">
+    <rect width="100" height="60" rx="5" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+    <text x="50" y="35" text-anchor="middle" font-size="12" fill="#1976d2">Client</text>
+  </g>
+
+  <!-- API Gateway Box -->
+  <g transform="translate(200, 60)">
+    <rect width="100" height="60" rx="5" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+    <text x="50" y="35" text-anchor="middle" font-size="12" fill="#f57c00">API Gateway</text>
+  </g>
+
+  <!-- Server Box -->
+  <g transform="translate(350, 60)">
+    <rect width="100" height="60" rx="5" fill="#e8f5e9" stroke="#388e3c" stroke-width="2"/>
+    <text x="50" y="35" text-anchor="middle" font-size="12" fill="#388e3c">Server</text>
+  </g>
+
+  <!-- Database Box -->
+  <g transform="translate(350, 180)">
+    <ellipse cx="50" cy="30" rx="45" ry="25" fill="#fce4ec" stroke="#c2185b" stroke-width="2"/>
+    <text x="50" y="35" text-anchor="middle" font-size="12" fill="#c2185b">Database</text>
+  </g>
+
+  <!-- Cache Box -->
+  <g transform="translate(200, 180)">
+    <rect width="100" height="60" rx="5" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2"/>
+    <text x="50" y="35" text-anchor="middle" font-size="12" fill="#7b1fa2">Cache</text>
+  </g>
+
+  <!-- Arrows -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+  </defs>
+
+  <!-- Client to API Gateway -->
+  <line x1="150" y1="90" x2="195" y2="90" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- API Gateway to Server -->
+  <line x1="300" y1="90" x2="345" y2="90" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Server to Database -->
+  <line x1="400" y1="120" x2="400" y2="150" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Server to Cache -->
+  <line x1="350" y1="110" x2="300" y2="180" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>
+
+  <!-- Cache to API Gateway -->
+  <line x1="250" y1="180" x2="250" y2="125" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)"/>
+</svg>
