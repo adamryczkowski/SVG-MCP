@@ -1,5 +1,6 @@
 """SVG visual diff module using pixelmatch and PIL."""
 
+import tempfile
 from pathlib import Path
 from typing import Literal
 
@@ -220,8 +221,6 @@ class SVGDiffer:
             return None
 
         # Create a temporary buffer for rendering
-        import tempfile
-
         with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmp:
             tmp_path = Path(tmp.name)
             result = self._renderer.render(svg, tmp_path, width=width, height=height)
@@ -418,18 +417,17 @@ class SVGDiffer:
         diff_count = int(np.sum(diff_mask))
 
         # Create result with img2 as base, dimmed
-        result = img2.copy()
-        result_arr = np.array(result, dtype=np.float32)
+        result_arr = np.array(img2, dtype=np.float32)
 
         # Dim the background
         result_arr = result_arr * scheme.background_opacity
 
-        # Highlight differences
+        # Highlight differences using vectorized numpy operations
         highlight_color = np.array(scheme.highlight_color, dtype=np.float32)
-        for y in range(result_arr.shape[0]):
-            for x in range(result_arr.shape[1]):
-                if diff_mask[y, x]:
-                    result_arr[y, x] = highlight_color
+        # Expand diff_mask to 4 channels (RGBA) for broadcasting
+        diff_mask_expanded = np.expand_dims(diff_mask, axis=2)
+        # Use np.where for vectorized conditional assignment
+        result_arr = np.where(diff_mask_expanded, highlight_color, result_arr)
 
         result = Image.fromarray(
             np.clip(result_arr, 0, 255).astype(np.uint8), mode="RGBA"
@@ -461,21 +459,30 @@ class SVGDiffer:
             img1, img2, diff_temp, threshold=threshold, alpha=0.1
         )
 
-        # Create checkerboard pattern
+        # Create checkerboard pattern using vectorized numpy operations
         arr1 = np.array(img1)
         arr2 = np.array(img2)
-        result_arr = np.zeros_like(arr1)
 
-        # Create checkerboard mask (8x8 tiles)
+        # Create checkerboard mask (8x8 tiles) using vectorized operations
         tile_size = 8
-        for y in range(arr1.shape[0]):
-            for x in range(arr1.shape[1]):
-                tile_x = x // tile_size
-                tile_y = y // tile_size
-                if (tile_x + tile_y) % 2 == 0:
-                    result_arr[y, x] = arr1[y, x]
-                else:
-                    result_arr[y, x] = arr2[y, x]
+        height, width = arr1.shape[:2]
+
+        # Create coordinate grids
+        y_coords = np.arange(height)
+        x_coords = np.arange(width)
+
+        # Calculate tile indices
+        tile_y = y_coords[:, np.newaxis] // tile_size
+        tile_x = x_coords[np.newaxis, :] // tile_size
+
+        # Create checkerboard mask: True where (tile_x + tile_y) is even
+        checkerboard_mask = (tile_x + tile_y) % 2 == 0
+
+        # Expand mask to 4 channels for RGBA
+        checkerboard_mask_expanded = np.expand_dims(checkerboard_mask, axis=2)
+
+        # Use np.where for vectorized selection
+        result_arr = np.where(checkerboard_mask_expanded, arr1, arr2)
 
         result = Image.fromarray(result_arr, mode="RGBA")
 
