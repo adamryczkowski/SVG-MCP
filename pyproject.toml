@@ -1,0 +1,68 @@
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "SVG_MCP"
+version = "0.1.0"
+description = "MCP server for SVG file operations - validation, rendering, and visual diff"
+readme = "README.md"
+requires-python = ">=3.14.2,<4.0"
+authors = [{ name = "Adam Ryczkowski" }]
+keywords = ["mcp", "svg", "validation", "rendering", "diff", "ai-agents"]
+
+dependencies = [
+    "fastmcp>=2.0.0",
+    "cairosvg>=2.8.0",
+    "lxml>=6.0.0",
+    "pixelmatch>=0.3.0",
+    "Pillow>=12.0.0",
+    "click>=8.3.0",
+    "numpy>=2.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/adamryczkowski/SVG-MCP"
+Documentation = "https://github.com/adamryczkowski/SVG-MCP#readme"
+Repository = "https://github.com/adamryczkowski/SVG-MCP"
+
+[project.scripts]
+svg-mcp = "SVG_MCP.cli:cli"
+
+[tool.poetry]
+packages = [{ include = "SVG_MCP" }]
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^4.0.1"
+pyright = "^1.1.405"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.0"
+coverage = "^7.6.0"
+pytest-asyncio = "^0.24.0"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
+# Configure pytest discovery so test-mock.py (hyphen) is collected.
+# Keep tests/pytest.ini file empty per requirements; configuration lives here.
+[tool.pytest.ini_options]
+python_files = ["test-*.py", "test_*.py", "*_test.py"]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests (rendering, etc.)",
+]
+
+[tool.coverage.run]
+source = ["SVG_MCP"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 0

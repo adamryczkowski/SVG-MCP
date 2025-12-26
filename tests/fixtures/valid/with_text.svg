@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 100">
+  <text x="10" y="30" font-family="Arial" font-size="24" fill="black">Hello World</text>
+  <text x="10" y="60" font-family="serif" font-size="18" fill="navy" font-weight="bold">Bold Text</text>
+  <text x="10" y="90" font-family="monospace" font-size="14" fill="green" font-style="italic">Italic Monospace</text>
+</svg>
