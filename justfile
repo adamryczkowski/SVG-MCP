@@ -68,8 +68,12 @@ install-deps: install-poetry
       fi
     fi
     # Deactivate any foreign venv to avoid confusion with Poetry's .venv
+    # Note: 'deactivate' is a shell function only available in interactive shells
+    # with an active venv. We unset VIRTUAL_ENV and clean PATH instead.
     if [ -n "${VIRTUAL_ENV-}" ]; then
-      deactivate || true
+      # Remove the venv's bin directory from PATH
+      PATH=$(echo "$PATH" | tr ':' '\n' | grep -v "^${VIRTUAL_ENV}/bin$" | tr '\n' ':' | sed 's/:$//')
+      unset VIRTUAL_ENV
     fi
     # Tell Poetry which Python to use for the virtualenv
     # Priority: PYTHON_PATH from config > Spack view Python > auto-detect

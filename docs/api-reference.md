@@ -489,76 +489,102 @@ result = differ.diff_files("file1.svg", "file2.svg", "diff.png")
 
 ## Data Types
 
+All data types are Pydantic `BaseModel` classes, providing automatic validation and serialization.
+
 ### ValidationResult
 
 ```python
-@dataclass
-class ValidationResult:
-    valid: bool
-    errors: list[ValidationError]
-    warnings: list[ValidationWarning]
-    info: SVGInfo | None
+from pydantic import BaseModel, Field
+
+class ValidationResult(BaseModel):
+    """Result of SVG validation."""
+    valid: bool = Field(description="Whether the SVG is valid")
+    errors: list[ValidationError] = Field(default_factory=list, description="List of validation errors")
+    warnings: list[ValidationError] = Field(default_factory=list, description="List of validation warnings")
+    info: SVGInfo | None = Field(default=None, description="SVG metadata if valid")
 ```
 
 ### ValidationError
 
 ```python
-@dataclass
-class ValidationError:
-    line: int | None
-    column: int | None
-    message: str
-    context: str | None
-    suggestion: str | None
+class ValidationError(BaseModel):
+    """Details about a validation error or warning."""
+    line: int | None = Field(default=None, description="Line number where error occurred")
+    column: int | None = Field(default=None, description="Column number where error occurred")
+    message: str = Field(description="Error message")
+    context: str | None = Field(default=None, description="Source context around the error")
+    suggestion: str | None = Field(default=None, description="Suggested fix")
 ```
 
 ### SVGInfo
 
 ```python
-@dataclass
-class SVGInfo:
-    element_count: int
-    viewbox: ViewBox | None
-    width: str | None
-    height: str | None
-    has_namespace: bool
-    namespaces: list[str]
+class SVGInfo(BaseModel):
+    """Metadata extracted from a valid SVG."""
+    element_count: int = Field(description="Total number of elements in the SVG")
+    viewbox: ViewBox | None = Field(default=None, description="SVG viewBox if present")
+    width: str | None = Field(default=None, description="SVG width attribute")
+    height: str | None = Field(default=None, description="SVG height attribute")
+    has_namespace: bool = Field(description="Whether SVG has proper namespace")
+    namespaces: dict[str, str] = Field(default_factory=dict, description="Namespace prefix to URI mapping")
+```
+
+### ViewBox
+
+```python
+class ViewBox(BaseModel):
+    """SVG viewBox coordinates."""
+    x: float = Field(description="X coordinate of viewBox origin")
+    y: float = Field(description="Y coordinate of viewBox origin")
+    width: float = Field(description="Width of viewBox")
+    height: float = Field(description="Height of viewBox")
 ```
 
 ### RenderResult
 
 ```python
-@dataclass
-class RenderResult:
-    success: bool
-    output_path: str | None
-    dimensions: Dimensions | None
-    coordinate_mapping: CoordinateMapping | None
-    error: str | None
+class RenderResult(BaseModel):
+    """Result of SVG rendering operation."""
+    success: bool = Field(description="Whether rendering succeeded")
+    output_path: str | None = Field(default=None, description="Path to output file if successful")
+    dimensions: ViewBox | None = Field(default=None, description="Output image dimensions")
+    coordinate_mapping: CoordinateMapping | None = Field(default=None, description="SVG to pixel coordinate mapping")
+    error: str | None = Field(default=None, description="Error message if failed")
+```
+
+### CoordinateMapping
+
+```python
+class CoordinateMapping(BaseModel):
+    """Mapping between SVG coordinates and pixel coordinates."""
+    svg_viewbox: ViewBox = Field(description="SVG viewBox coordinates")
+    pixel_bounds: ViewBox = Field(description="Pixel bounds of rendered image")
+    scale_x: float = Field(description="Horizontal scale factor")
+    scale_y: float = Field(description="Vertical scale factor")
 ```
 
 ### DiffResult
 
 ```python
-@dataclass
-class DiffResult:
-    identical: bool
-    diff_pixel_count: int
-    diff_percentage: float
-    diff_image_path: str | None
-    bounding_boxes: list[BoundingBox]
-    diff_mode_used: str
-    color_scheme_used: str
+class DiffResult(BaseModel):
+    """Result of visual diff comparison."""
+    identical: bool = Field(description="Whether the two SVGs are visually identical")
+    diff_pixel_count: int = Field(description="Number of differing pixels")
+    diff_percentage: float = Field(description="Percentage of pixels that differ")
+    diff_image_path: str | None = Field(default=None, description="Path to diff image")
+    bounding_boxes: list[BoundingBox] = Field(default_factory=list, description="Regions with changes")
+    diff_mode_used: str = Field(description="Diff visualization mode used")
+    color_scheme_used: str = Field(description="Color scheme used")
 ```
 
 ### BoundingBox
 
 ```python
-@dataclass
-class BoundingBox:
-    x: int
-    y: int
-    width: int
-    height: int
-    description: str | None
+class BoundingBox(BaseModel):
+    """Bounding box for a region of interest."""
+    x: int = Field(description="X coordinate of top-left corner")
+    y: int = Field(description="Y coordinate of top-left corner")
+    width: int = Field(description="Width of bounding box")
+    height: int = Field(description="Height of bounding box")
+    description: str | None = Field(default=None, description="Description of the region")
 ```
