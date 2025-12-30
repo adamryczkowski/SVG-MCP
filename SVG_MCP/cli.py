@@ -10,6 +10,7 @@ from pathlib import Path
 
 import click
 
+from SVG_MCP import __version__
 from SVG_MCP.server import create_server
 from SVG_MCP.svg.differ import SVGDiffer
 from SVG_MCP.svg.renderer import SVGRenderer
@@ -17,7 +18,7 @@ from SVG_MCP.svg.validator import SVGValidator
 
 
 @click.group()
-@click.version_option(version="0.1.0", prog_name="svg-mcp")
+@click.version_option(version=__version__, prog_name="svg-mcp")
 def cli() -> None:
     """SVG-MCP: MCP server for SVG file operations.
 
@@ -278,7 +279,7 @@ def info() -> None:
     click.echo("SVG-MCP Server")
     click.echo("==============")
     click.echo()
-    click.echo("Version: 0.1.0")
+    click.echo(f"Version: {__version__}")
     click.echo()
     click.echo("Available MCP Tools:")
     click.echo("  - svg_validate: Validate SVG syntax")

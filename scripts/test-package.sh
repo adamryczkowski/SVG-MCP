@@ -54,16 +54,25 @@ fi
 dist_name="SVG_MCP"
 module_name="SVG_MCP"
 
-# Smoke tests: import module, call add(2,3)==5 if present, and verify distribution version
+# Smoke tests: import module, verify exports, and verify distribution version
 python - <<PY
 import importlib, importlib.metadata
 name = "${dist_name}"
 mod = importlib.import_module("${module_name}")
-#if hasattr(mod, "add"): # A smoke test function, to optionally put here
-#    assert mod.add(2, 3) == 5, "add(2,3) did not return 5"
+
+# Verify expected exports are available
+assert hasattr(mod, "SVGValidator"), "SVGValidator not exported"
+assert hasattr(mod, "SVGRenderer"), "SVGRenderer not exported"
+assert hasattr(mod, "SVGDiffer"), "SVGDiffer not exported"
+assert hasattr(mod, "create_server"), "create_server not exported"
+assert hasattr(mod, "__version__"), "__version__ not exported"
+print("All expected exports are available")
+
+# Verify version matches
 ver = importlib.metadata.version(name)
 print(f"Installed {name}=={ver}")
 assert ver == "${expected_version}", f"Version mismatch: {ver} != ${expected_version}"
+assert mod.__version__ == ver, f"Module __version__ mismatch: {mod.__version__} != {ver}"
 PY
 
 deactivate
