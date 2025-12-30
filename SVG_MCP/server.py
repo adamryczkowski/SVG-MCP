@@ -256,6 +256,7 @@ def _impl_svg_preview_resource(path: str) -> str:
     if not file_path.exists():
         return f"Error: File not found: {path}"
 
+    tmp_path: str | None = None
     try:
         svg_content = file_path.read_text(encoding="utf-8")
 
@@ -269,14 +270,18 @@ def _impl_svg_preview_resource(path: str) -> str:
             # Read and encode the PNG
             with open(tmp_path, "rb") as f:
                 png_data = f.read()
-            # Clean up
-            Path(tmp_path).unlink()
             return f"data:image/png;base64,{base64.b64encode(png_data).decode()}"
         else:
             return f"Error: Failed to render preview: {result.error}"
 
     except OSError as e:
         return f"Error: Failed to read file: {e}"
+    finally:
+        # Ensure temporary file is always cleaned up
+        if tmp_path is not None:
+            tmp_file = Path(tmp_path)
+            if tmp_file.exists():
+                tmp_file.unlink()
 
 
 # ============================================================================

@@ -1,12 +1,12 @@
 """SVG validation module using lxml."""
 
-import re
 from pathlib import Path
 from typing import Any
 
 from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]
 
-from SVG_MCP.models.types import SVGInfo, ValidationError, ValidationResult, ViewBox
+from SVG_MCP.models.types import SVGInfo, ValidationError, ValidationResult
+from SVG_MCP.svg.utils import parse_viewbox
 
 # SVG namespace
 SVG_NAMESPACE = "http://www.w3.org/2000/svg"
@@ -211,7 +211,7 @@ class SVGValidator:
             has_namespace = True
 
         # Extract viewBox
-        viewbox = self._parse_viewbox(root.get("viewBox"))
+        viewbox = parse_viewbox(root.get("viewBox"))
 
         # Extract dimensions
         width = root.get("width")
@@ -225,29 +225,6 @@ class SVGValidator:
             has_namespace=has_namespace,
             namespaces=namespaces,
         )
-
-    def _parse_viewbox(self, viewbox_str: str | None) -> ViewBox | None:
-        """Parse viewBox attribute string.
-
-        Args:
-            viewbox_str: viewBox attribute value.
-
-        Returns:
-            ViewBox if valid, None otherwise.
-        """
-        if not viewbox_str:
-            return None
-
-        # viewBox can be separated by spaces or commas
-        parts = re.split(r"[\s,]+", viewbox_str.strip())
-        if len(parts) != 4:
-            return None
-
-        try:
-            x, y, width, height = map(float, parts)
-            return ViewBox(x=x, y=y, width=width, height=height)
-        except ValueError:
-            return None
 
     def _parse_xml_error(
         self, error: etree.XMLSyntaxError, content: str

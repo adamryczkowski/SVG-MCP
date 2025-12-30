@@ -6,6 +6,7 @@ import cairosvg
 from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]
 
 from SVG_MCP.models.types import CoordinateMapping, RenderResult, ViewBox
+from SVG_MCP.svg.utils import parse_viewbox
 
 
 class SVGRenderer:
@@ -195,40 +196,13 @@ class SVGRenderer:
             return None
 
         # Extract viewBox
-        viewbox = None
-        viewbox_str = root.get("viewBox")
-        if viewbox_str:
-            viewbox = self._parse_viewbox(viewbox_str)
+        viewbox = parse_viewbox(root.get("viewBox"))
 
         # Extract width and height
         width = self._parse_dimension(root.get("width"))
         height = self._parse_dimension(root.get("height"))
 
         return viewbox, width, height
-
-    def _parse_viewbox(self, viewbox_str: str | None) -> ViewBox | None:
-        """Parse viewBox attribute string.
-
-        Args:
-            viewbox_str: viewBox attribute value.
-
-        Returns:
-            ViewBox if valid, None otherwise.
-        """
-        if not viewbox_str:
-            return None
-
-        import re
-
-        parts = re.split(r"[\s,]+", viewbox_str.strip())
-        if len(parts) != 4:
-            return None
-
-        try:
-            x, y, width, height = map(float, parts)
-            return ViewBox(x=x, y=y, width=width, height=height)
-        except ValueError:
-            return None
 
     def _parse_dimension(self, dim_str: str | None) -> float | None:
         """Parse a dimension string (e.g., '100', '100px', '50%').
