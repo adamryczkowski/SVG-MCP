@@ -320,18 +320,25 @@ class TestSvgFileResource:
 
 
 class TestSvgPreviewResource:
-    """Tests for svg://preview/{path} resource."""
+    """Tests for svg://preview/{path} resource.
+
+    Note: Thumbnail generation is disabled to avoid bloating AI context.
+    The preview resource now returns SVG content directly.
+    """
 
     def test_preview_resource_exists(
         self, tmp_output_dir: Path, minimal_svg: str
     ) -> None:
-        """Test previewing existing file."""
+        """Test previewing existing file returns SVG content directly."""
         test_file = tmp_output_dir / "preview_test.svg"
         test_file.write_text(minimal_svg)
 
         result = _impl_svg_preview_resource(str(test_file))
 
-        assert result.startswith("data:image/png;base64,")
+        # Preview now returns SVG content directly instead of base64-encoded PNG
+        # to avoid bloating AI context windows
+        assert result == minimal_svg
+        assert "<svg" in result
 
     def test_preview_resource_not_exists(self, tmp_output_dir: Path) -> None:
         """Test previewing non-existent file."""

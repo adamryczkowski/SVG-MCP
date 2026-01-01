@@ -301,12 +301,16 @@ class TestResourceAccessWorkflow:
 
 @pytest.mark.e2e
 class TestPreviewResourceWorkflow:
-    """E010: Test svg://preview/{path} resource access."""
+    """E010: Test svg://preview/{path} resource access.
+
+    Note: Thumbnail generation is disabled to avoid bloating AI context.
+    The preview resource now returns SVG content directly.
+    """
 
     def test_preview_resource_workflow(
         self, temp_workspace: Path, simple_svg: str
     ) -> None:
-        """Test getting rendered preview via resource URI."""
+        """Test getting SVG content via preview resource URI."""
         # Step 1: Create a test file
         svg_file = temp_workspace / "preview_test.svg"
         svg_file.write_text(simple_svg)
@@ -314,15 +318,10 @@ class TestPreviewResourceWorkflow:
         # Step 2: Get preview via resource
         result = _impl_svg_preview_resource(str(svg_file))
 
-        # Step 3: Verify base64 PNG data URL
-        assert result.startswith("data:image/png;base64,")
-        # Verify it's valid base64 (should be decodable)
-        import base64
-
-        base64_data = result.replace("data:image/png;base64,", "")
-        decoded = base64.b64decode(base64_data)
-        # PNG files start with specific magic bytes
-        assert decoded[:8] == b"\x89PNG\r\n\x1a\n"
+        # Step 3: Verify SVG content is returned directly
+        # (thumbnail generation is disabled to avoid bloating AI context)
+        assert result == simple_svg
+        assert "<svg" in result
 
 
 @pytest.mark.e2e

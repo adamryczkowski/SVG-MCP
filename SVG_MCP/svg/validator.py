@@ -1,5 +1,6 @@
 """SVG validation module using lxml."""
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,10 @@ from SVG_MCP.svg.utils import parse_viewbox
 # SVG namespace
 SVG_NAMESPACE = "http://www.w3.org/2000/svg"
 SVG_NAMESPACE_MAP = {"svg": SVG_NAMESPACE}
+XLINK_NAMESPACE = "http://www.w3.org/1999/xlink"
+
+# Pattern to detect base64 embedded images
+BASE64_DATA_URI_PATTERN = re.compile(r"^data:image/[^;]+;base64,", re.IGNORECASE)
 
 
 class SVGValidator:
@@ -93,8 +98,17 @@ class SVGValidator:
                     )
                 )
 
+            # Check for embedded images (base64 data URIs)
+            # This is an error because embedded images bloat the SVG file size
+            # and overwhelm AI context windows
+            embedded_image_errors = self._check_embedded_images(root, content)
+            errors.extend(embedded_image_errors)
+
+            # If there are embedded image errors, the SVG is invalid
+            is_valid = len(errors) == 0
+
             return ValidationResult(
-                valid=True, errors=errors, warnings=warnings, info=info
+                valid=is_valid, errors=errors, warnings=warnings, info=info
             )
 
         except etree.XMLSyntaxError as e:
@@ -288,5 +302,91 @@ class SVGValidator:
             return "Check that all elements are properly closed"
         if "not well-formed" in error_lower:
             return "Check XML syntax: proper nesting, closed tags, quoted attributes"
+
+        return None
+
+    def _check_embedded_images(self, root: Any, content: str) -> list[ValidationError]:
+        """Check for embedded images (base64 data URIs) in the SVG.
+
+        Embedded images cause SVG files to explode in size, overwhelming
+        the context of AI readers. Images should be linked, not embedded.
+
+        Args:
+            root: lxml root element.
+            content: Original SVG content for line number extraction.
+
+        Returns:
+            List of ValidationError for each embedded image found.
+        """
+        errors: list[ValidationError] = []
+        content_lines = content.split("\n")
+
+        # Find all image elements (both namespaced and non-namespaced)
+        for element in root.iter():
+            tag = element.tag
+            # Skip comments and other non-element nodes (their tag is a function)
+            if not isinstance(tag, str):
+                continue
+            local_name = tag.split("}")[-1] if "}" in tag else tag
+
+            if local_name == "image":
+                # Check href attribute (SVG 2.0)
+                href = element.get("href")
+                # Check xlink:href attribute (SVG 1.1)
+                xlink_href = element.get(f"{{{XLINK_NAMESPACE}}}href")
+
+                # Check both href variants for embedded data
+                for attr_name, attr_value in [
+                    ("href", href),
+                    ("xlink:href", xlink_href),
+                ]:
+                    if attr_value and BASE64_DATA_URI_PATTERN.match(attr_value):
+                        # Try to find the line number
+                        line_num = self._find_element_line(element, content_lines)
+
+                        # Calculate approximate size of embedded data
+                        data_size = len(attr_value)
+                        size_kb = data_size / 1024
+
+                        errors.append(
+                            ValidationError(
+                                line=line_num,
+                                column=None,
+                                message=(
+                                    f"Embedded image detected ({attr_name} attribute, "
+                                    f"~{size_kb:.1f} KB). Embedded images bloat SVG file "
+                                    "size and overwhelm AI context windows."
+                                ),
+                                suggestion=(
+                                    "Use a linked image instead: replace the base64 data URI "
+                                    "with a relative or absolute file path (e.g., "
+                                    f'{attr_name}="images/photo.png")'
+                                ),
+                            )
+                        )
+
+        return errors
+
+    def _find_element_line(self, element: Any, content_lines: list[str]) -> int | None:
+        """Try to find the line number of an element in the content.
+
+        Args:
+            element: lxml element to find.
+            content_lines: List of content lines.
+
+        Returns:
+            Line number (1-based) or None if not found.
+        """
+        # lxml elements have sourceline attribute when parsed
+        if hasattr(element, "sourceline") and element.sourceline is not None:
+            return element.sourceline
+
+        # Fallback: try to find by tag name (less accurate)
+        tag = element.tag
+        local_name = tag.split("}")[-1] if "}" in tag else tag
+
+        for i, line in enumerate(content_lines, 1):
+            if f"<{local_name}" in line or f"<svg:{local_name}" in line:
+                return i
 
         return None

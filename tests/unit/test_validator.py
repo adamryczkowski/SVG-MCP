@@ -337,3 +337,127 @@ class TestSVGValidatorEdgeCases:
         result = validator.validate(svg_with_whitespace)
 
         assert result.valid is True
+
+
+class TestSVGValidatorEmbeddedImages:
+    """Tests for embedded image detection.
+
+    Embedded images (base64 data URIs) cause SVG files to explode in size,
+    overwhelming the context of AI readers. Images should be linked, not embedded.
+    """
+
+    # Short base64 test data that won't trigger secret scanners
+    # This is just "test" encoded in base64
+    _SHORT_BASE64 = "dGVzdA=="
+
+    def test_validate_svg_with_embedded_image_href(self) -> None:
+        """Test that SVG with embedded image using href attribute is invalid."""
+        svg_with_embedded = f"""<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="data:image/png;base64,{self._SHORT_BASE64}" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg_with_embedded)
+
+        assert result.valid is False
+        assert len(result.errors) > 0
+        assert any("embedded" in e.message.lower() for e in result.errors)
+        assert any("href" in e.message.lower() for e in result.errors)
+
+    def test_validate_svg_with_embedded_image_xlink_href(self) -> None:
+        """Test that SVG with embedded image using xlink:href attribute is invalid."""
+        svg_with_embedded = f"""<svg xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <image xlink:href="data:image/png;base64,{self._SHORT_BASE64}" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg_with_embedded)
+
+        assert result.valid is False
+        assert len(result.errors) > 0
+        assert any("embedded" in e.message.lower() for e in result.errors)
+        assert any("xlink:href" in e.message.lower() for e in result.errors)
+
+    def test_validate_svg_with_linked_image(self) -> None:
+        """Test that SVG with linked image (file path) is valid."""
+        svg_with_linked = """<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="images/photo.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg_with_linked)
+
+        assert result.valid is True
+        assert len(result.errors) == 0
+
+    def test_validate_svg_with_linked_image_url(self) -> None:
+        """Test that SVG with linked image (URL) is valid."""
+        svg_with_url = """<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="https://example.com/image.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg_with_url)
+
+        assert result.valid is True
+        assert len(result.errors) == 0
+
+    def test_validate_svg_without_images(self) -> None:
+        """Test that SVG without any images is valid."""
+        svg_no_images = """<svg xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" fill="red"/>
+            <circle cx="50" cy="50" r="25" fill="blue"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg_no_images)
+
+        assert result.valid is True
+        assert len(result.errors) == 0
+
+    def test_embedded_image_error_includes_size(self) -> None:
+        """Test that embedded image error includes approximate size."""
+        svg_with_embedded = f"""<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="data:image/png;base64,{self._SHORT_BASE64}" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg_with_embedded)
+
+        assert len(result.errors) > 0
+        # Error should mention size in KB
+        assert any("kb" in e.message.lower() for e in result.errors)
+
+    def test_embedded_image_error_includes_suggestion(self) -> None:
+        """Test that embedded image error includes a suggestion to use linked images."""
+        svg_with_embedded = f"""<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="data:image/png;base64,{self._SHORT_BASE64}" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg_with_embedded)
+
+        assert len(result.errors) > 0
+        # Error should have a suggestion
+        assert any(e.suggestion is not None for e in result.errors)
+        # Suggestion should mention linked images
+        assert any(
+            e.suggestion is not None and "linked" in e.suggestion.lower()
+            for e in result.errors
+        )
+
+    def test_multiple_embedded_images_all_reported(self) -> None:
+        """Test that multiple embedded images are all reported as errors."""
+        svg_with_multiple = f"""<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="data:image/png;base64,{self._SHORT_BASE64}" width="50" height="50"/>
+            <image href="data:image/jpeg;base64,{self._SHORT_BASE64}" width="50" height="50"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg_with_multiple)
+
+        assert result.valid is False
+        # Should have at least 2 errors (one for each embedded image)
+        embedded_errors = [e for e in result.errors if "embedded" in e.message.lower()]
+        assert len(embedded_errors) >= 2
