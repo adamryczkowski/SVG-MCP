@@ -68,45 +68,26 @@ pip install -e .
 
 ## Using with Roo Code (VS Code Extension)
 
-### Configuration
+MCP server configurations in Roo Code can be managed at two levels:
 
-Add SVG-MCP to your Roo Code MCP settings. Edit your VS Code settings or the MCP configuration file:
+- **Global Configuration**: Stored in `mcp_settings.json`, applies across all workspaces
+- **Project-level Configuration**: Stored in `.roo/mcp.json` within your project's root directory
 
-**Option 1: VS Code Settings (settings.json)**
+### Option 1: Using pipx (Recommended)
 
-```json
-{
-  "roo-cline.mcpServers": {
-    "svg-mcp": {
-      "command": "poetry",
-      "args": ["run", "svg-mcp", "serve"],
-      "cwd": "/path/to/SVG-MCP"
-    }
-  }
-}
-```
-
-**Option 2: MCP Configuration File (~/.config/roo-cline/mcp.json)**
-
-```json
-{
-  "mcpServers": {
-    "svg-mcp": {
-      "command": "/path/to/SVG-MCP/.venv/bin/svg-mcp",
-      "args": ["serve"],
-      "env": {}
-    }
-  }
-}
-```
-
-**Option 3: Using pipx (Recommended for Global Install)**
+Install SVG-MCP globally with pipx, then configure Roo Code to use it:
 
 ```bash
 # Install globally with pipx
-pipx install /path/to/SVG-MCP
+pipx install .
 
-# Then configure in Roo Code
+# Or install from a specific path
+pipx install /path/to/SVG-MCP
+```
+
+Then add the following to your Roo Code MCP settings (click the MCP Servers icon in Roo Code, then "Edit Global MCP" or "Edit Project MCP"):
+
+```json
 {
   "mcpServers": {
     "svg-mcp": {
@@ -117,13 +98,83 @@ pipx install /path/to/SVG-MCP
 }
 ```
 
+### Option 2: Using mise (Runtime Version Manager)
+
+If you use [mise](https://mise.jdx.dev/) to manage Python versions:
+
+```json
+{
+  "mcpServers": {
+    "svg-mcp": {
+      "command": "mise",
+      "args": ["x", "--", "svg-mcp", "serve"]
+    }
+  }
+}
+```
+
+### Option 3: Direct Path to Virtual Environment
+
+If you prefer to run from a local development installation:
+
+```json
+{
+  "mcpServers": {
+    "svg-mcp": {
+      "command": "/path/to/SVG-MCP/.venv/bin/svg-mcp",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+### Option 4: Using Poetry (Development)
+
+For development with Poetry:
+
+```json
+{
+  "mcpServers": {
+    "svg-mcp": {
+      "command": "poetry",
+      "args": ["run", "svg-mcp", "serve"],
+      "cwd": "/path/to/SVG-MCP"
+    }
+  }
+}
+```
+
+### Configuration Options
+
+Each server configuration supports these parameters:
+
+| Parameter | Description |
+|-----------|-------------|
+| `command` | The executable to run (e.g., `svg-mcp`, `python`, `poetry`) |
+| `args` | Array of arguments to pass to the command |
+| `cwd` | Working directory for the server process (optional) |
+| `env` | Environment variables for the server process (optional) |
+| `alwaysAllow` | Array of tool names to auto-approve (optional) |
+| `disabled` | Set to `true` to disable this server (optional) |
+
 ### Verifying the Connection
 
-After configuring, restart VS Code. You should see "svg-mcp" listed in the MCP servers panel. The following tools will be available:
+1. Open VS Code with Roo Code extension installed
+2. Click the MCP Servers icon (⚡) in the Roo Code panel
+3. You should see "svg-mcp" listed with a green status indicator
+4. The following tools will be available:
+   - `svg_validate` - Validate SVG content
+   - `svg_render` - Render SVG to PNG
+   - `svg_diff` - Compare two SVGs visually
 
-- `svg_validate` - Validate SVG content
-- `svg_render` - Render SVG to PNG
-- `svg_diff` - Compare two SVGs visually
+### Troubleshooting
+
+If the server doesn't connect:
+
+1. **Check the server is installed**: Run `svg-mcp --version` in your terminal
+2. **Check the path**: Ensure the command path is correct for your installation method
+3. **Check logs**: Look at the Roo Code output panel for error messages
+4. **Restart the server**: Use the restart button next to the server in the MCP settings
 
 ## MCP Tools Reference
 

@@ -7,7 +7,7 @@ name = "SVG_MCP"
 version = "0.1.0"
 description = "MCP server for SVG file operations - validation, rendering, and visual diff"
 readme = "README.md"
-requires-python = ">=3.14.2,<4.0"
+requires-python = ">=3.12.0,<4.0"
 authors = [{ name = "Adam Ryczkowski" }]
 keywords = ["mcp", "svg", "validation", "rendering", "diff", "ai-agents"]
 
