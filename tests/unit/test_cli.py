@@ -8,6 +8,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
+from SVG_MCP import __version__
 from SVG_MCP.cli import cli
 
 
@@ -21,7 +22,7 @@ class TestCLIBasic:
 
         assert result.exit_code == 0
         assert "svg-mcp" in result.output.lower()
-        assert "0.1.0" in result.output
+        assert __version__ in result.output
 
     def test_cli_help(self) -> None:
         """Test --help shows help (C002)."""
@@ -381,7 +382,7 @@ class TestCLIInfo:
         assert result.exit_code == 0
         assert "SVG-MCP" in result.output
         assert "Version" in result.output
-        assert "0.1.0" in result.output
+        assert __version__ in result.output
 
     def test_cli_info_shows_tools(self) -> None:
         """Test info command lists available tools."""

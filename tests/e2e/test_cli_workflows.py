@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
+from SVG_MCP import __version__
 from SVG_MCP.cli import cli
 
 
@@ -325,7 +326,7 @@ class TestCliVersionConsistency:
 
         assert result.exit_code == 0
         # Version should be in output
-        assert "0.1.0" in result.output
+        assert __version__ in result.output
 
     def test_cli_info_command(self, cli_runner: CliRunner) -> None:
         """Test info command shows version and features."""
@@ -333,7 +334,7 @@ class TestCliVersionConsistency:
 
         assert result.exit_code == 0
         assert "SVG-MCP" in result.output
-        assert "Version" in result.output or "0.1.0" in result.output
+        assert "Version" in result.output or __version__ in result.output
         assert "svg_validate" in result.output
         assert "svg_render" in result.output
         assert "svg_diff" in result.output
