@@ -379,8 +379,12 @@ class TestSVGValidatorEmbeddedImages:
         assert any("embedded" in e.message.lower() for e in result.errors)
         assert any("xlink:href" in e.message.lower() for e in result.errors)
 
-    def test_validate_svg_with_linked_image(self) -> None:
-        """Test that SVG with linked image (file path) is valid."""
+    def test_validate_svg_with_linked_image_relative_path(self) -> None:
+        """Test that SVG with linked image using relative path is flagged as error.
+
+        Relative paths may fail to resolve in Inkscape/librsvg when the SVG is
+        rendered without proper working directory context.
+        """
         svg_with_linked = """<svg xmlns="http://www.w3.org/2000/svg">
             <image href="images/photo.png" width="100" height="100"/>
         </svg>"""
@@ -388,8 +392,10 @@ class TestSVGValidatorEmbeddedImages:
         validator = SVGValidator()
         result = validator.validate(svg_with_linked)
 
-        assert result.valid is True
-        assert len(result.errors) == 0
+        assert result.valid is False
+        assert len(result.errors) > 0
+        assert any("relative path" in e.message.lower() for e in result.errors)
+        assert any(e.suggestion is not None for e in result.errors)
 
     def test_validate_svg_with_linked_image_url(self) -> None:
         """Test that SVG with linked image (URL) is valid."""
@@ -461,3 +467,277 @@ class TestSVGValidatorEmbeddedImages:
         # Should have at least 2 errors (one for each embedded image)
         embedded_errors = [e for e in result.errors if "embedded" in e.message.lower()]
         assert len(embedded_errors) >= 2
+
+
+class TestSVGValidatorRelativeImagePaths:
+    """Tests for relative image path detection.
+
+    Relative paths in SVG image elements may fail to resolve in Inkscape/librsvg
+    when the SVG is rendered without proper working directory context.
+    """
+
+    def test_relative_path_simple_filename(self) -> None:
+        """Test that simple filename (relative path) is flagged as error."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="photo.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert result.valid is False
+        assert any("relative path" in e.message.lower() for e in result.errors)
+
+    def test_relative_path_with_directory(self) -> None:
+        """Test that path with directory (relative) is flagged as error."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="images/photo.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert result.valid is False
+        assert any("relative path" in e.message.lower() for e in result.errors)
+
+    def test_relative_path_parent_directory(self) -> None:
+        """Test that path with parent directory reference is flagged as error."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="../images/photo.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert result.valid is False
+        assert any("relative path" in e.message.lower() for e in result.errors)
+
+    def test_absolute_url_http_is_valid(self) -> None:
+        """Test that HTTP URL is valid (not a relative path)."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="https://example.com/image.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert result.valid is True
+        assert len(result.errors) == 0
+
+    def test_absolute_url_file_is_valid(self) -> None:
+        """Test that file:// URL is valid (absolute path)."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="file:///home/user/images/photo.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert result.valid is True
+        assert len(result.errors) == 0
+
+    def test_fragment_reference_is_valid(self) -> None:
+        """Test that fragment-only reference (#id) is valid."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <pattern id="myPattern" width="10" height="10">
+                    <rect width="10" height="10" fill="red"/>
+                </pattern>
+            </defs>
+            <rect width="100" height="100" fill="url(#myPattern)"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert result.valid is True
+        assert len(result.errors) == 0
+
+    def test_relative_path_with_xlink_href(self) -> None:
+        """Test that relative path with xlink:href is also flagged."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <image xlink:href="images/photo.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert result.valid is False
+        assert any("relative path" in e.message.lower() for e in result.errors)
+
+    def test_relative_path_error_includes_path(self) -> None:
+        """Test that error message includes the actual path."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="my-special-image.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert any("my-special-image.png" in e.message for e in result.errors)
+
+    def test_relative_path_error_includes_suggestion(self) -> None:
+        """Test that error includes helpful suggestion."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="photo.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert any(e.suggestion is not None for e in result.errors)
+        # Suggestion should mention alternatives
+        assert any(
+            e.suggestion is not None
+            and (
+                "embed" in e.suggestion.lower()
+                or "absolute" in e.suggestion.lower()
+                or "file://" in e.suggestion.lower()
+            )
+            for e in result.errors
+        )
+
+    def test_multiple_relative_paths_all_reported(self) -> None:
+        """Test that multiple relative path images are all reported."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg">
+            <image href="image1.png" width="50" height="50"/>
+            <image href="image2.png" width="50" height="50"/>
+            <image href="image3.png" width="50" height="50"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        relative_errors = [
+            e for e in result.errors if "relative path" in e.message.lower()
+        ]
+        assert len(relative_errors) >= 3
+
+
+class TestSVGValidatorDeprecatedXlinkHref:
+    """Tests for deprecated xlink:href attribute detection.
+
+    The xlink:href attribute is deprecated in SVG 2.0 in favor of the
+    standard href attribute.
+    """
+
+    def test_xlink_href_on_image_produces_warning(self) -> None:
+        """Test that xlink:href on image element produces warning."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <image xlink:href="https://example.com/image.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        # Should be valid (it's just a warning)
+        assert result.valid is True
+        # But should have a warning
+        assert len(result.warnings) > 0
+        assert any("xlink:href" in w.message.lower() for w in result.warnings)
+        assert any("deprecated" in w.message.lower() for w in result.warnings)
+
+    def test_xlink_href_on_use_produces_warning(self) -> None:
+        """Test that xlink:href on use element produces warning."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <defs>
+                <rect id="myRect" width="50" height="50"/>
+            </defs>
+            <use xlink:href="#myRect" x="10" y="10"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert result.valid is True
+        assert len(result.warnings) > 0
+        assert any("xlink:href" in w.message.lower() for w in result.warnings)
+
+    def test_standard_href_no_warning(self) -> None:
+        """Test that standard href attribute produces no warning."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <rect id="myRect" width="50" height="50"/>
+            </defs>
+            <use href="#myRect" x="10" y="10"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert result.valid is True
+        # No xlink:href warnings
+        xlink_warnings = [
+            w for w in result.warnings if "xlink:href" in w.message.lower()
+        ]
+        assert len(xlink_warnings) == 0
+
+    def test_both_href_and_xlink_href_warning(self) -> None:
+        """Test that having both href and xlink:href produces specific warning."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <defs>
+                <rect id="myRect" width="50" height="50"/>
+            </defs>
+            <use href="#myRect" xlink:href="#myRect" x="10" y="10"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert result.valid is True
+        assert len(result.warnings) > 0
+        # Should mention having both attributes
+        assert any("both" in w.message.lower() for w in result.warnings)
+
+    def test_xlink_href_warning_includes_element_name(self) -> None:
+        """Test that warning includes the element name."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <image xlink:href="https://example.com/image.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert any("image" in w.message.lower() for w in result.warnings)
+
+    def test_xlink_href_warning_includes_suggestion(self) -> None:
+        """Test that warning includes suggestion to use href."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <image xlink:href="https://example.com/image.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        assert any(w.suggestion is not None for w in result.warnings)
+        assert any(
+            w.suggestion is not None and "href" in w.suggestion.lower()
+            for w in result.warnings
+        )
+
+    def test_multiple_xlink_href_all_reported(self) -> None:
+        """Test that multiple xlink:href usages are all reported."""
+        svg = """<svg xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <defs>
+                <rect id="rect1" width="50" height="50"/>
+                <rect id="rect2" width="50" height="50"/>
+            </defs>
+            <use xlink:href="#rect1" x="10" y="10"/>
+            <use xlink:href="#rect2" x="70" y="10"/>
+            <image xlink:href="https://example.com/image.png" width="100" height="100"/>
+        </svg>"""
+
+        validator = SVGValidator()
+        result = validator.validate(svg)
+
+        xlink_warnings = [
+            w for w in result.warnings if "xlink:href" in w.message.lower()
+        ]
+        assert len(xlink_warnings) >= 3

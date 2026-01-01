@@ -17,6 +17,12 @@ XLINK_NAMESPACE = "http://www.w3.org/1999/xlink"
 # Pattern to detect base64 embedded images
 BASE64_DATA_URI_PATTERN = re.compile(r"^data:image/[^;]+;base64,", re.IGNORECASE)
 
+# Pattern to detect data URIs (any type)
+DATA_URI_PATTERN = re.compile(r"^data:", re.IGNORECASE)
+
+# Pattern to detect absolute URLs (http, https, file)
+ABSOLUTE_URL_PATTERN = re.compile(r"^(https?://|file://)", re.IGNORECASE)
+
 
 class SVGValidator:
     """Validates SVG content and extracts information."""
@@ -104,7 +110,17 @@ class SVGValidator:
             embedded_image_errors = self._check_embedded_images(root, content)
             errors.extend(embedded_image_errors)
 
-            # If there are embedded image errors, the SVG is invalid
+            # Check for external image references with relative paths
+            # This is an error because Inkscape/librsvg may fail to resolve them
+            relative_path_errors = self._check_relative_image_paths(root, content)
+            errors.extend(relative_path_errors)
+
+            # Check for deprecated xlink:href attribute
+            # This is a warning because xlink:href is deprecated in SVG 2.0
+            xlink_warnings = self._check_deprecated_xlink_href(root, content)
+            warnings.extend(xlink_warnings)
+
+            # If there are errors, the SVG is invalid
             is_valid = len(errors) == 0
 
             return ValidationResult(
@@ -390,3 +406,162 @@ class SVGValidator:
                 return i
 
         return None
+
+    def _check_relative_image_paths(
+        self, root: Any, content: str
+    ) -> list[ValidationError]:
+        """Check for external image references with relative paths.
+
+        Relative paths in SVG image elements may fail to resolve in Inkscape/librsvg
+        when the SVG is rendered without proper working directory context. This is
+        a common source of rendering differences between browsers and Inkscape.
+
+        Args:
+            root: lxml root element.
+            content: Original SVG content for line number extraction.
+
+        Returns:
+            List of ValidationError for each relative path image found.
+        """
+        errors: list[ValidationError] = []
+        content_lines = content.split("\n")
+
+        # Find all image elements (both namespaced and non-namespaced)
+        for element in root.iter():
+            tag = element.tag
+            # Skip comments and other non-element nodes (their tag is a function)
+            if not isinstance(tag, str):
+                continue
+            local_name = tag.split("}")[-1] if "}" in tag else tag
+
+            if local_name == "image":
+                # Check href attribute (SVG 2.0)
+                href = element.get("href")
+                # Check xlink:href attribute (SVG 1.1)
+                xlink_href = element.get(f"{{{XLINK_NAMESPACE}}}href")
+
+                # Check both href variants for relative paths
+                for attr_name, attr_value in [
+                    ("href", href),
+                    ("xlink:href", xlink_href),
+                ]:
+                    if attr_value and self._is_relative_path(attr_value):
+                        # Try to find the line number
+                        line_num = self._find_element_line(element, content_lines)
+
+                        errors.append(
+                            ValidationError(
+                                line=line_num,
+                                column=None,
+                                message=(
+                                    f"External image with relative path detected "
+                                    f'({attr_name}="{attr_value}"). Relative paths may fail '
+                                    "to resolve in Inkscape/librsvg when the SVG is rendered "
+                                    "without proper working directory context, causing images "
+                                    "to appear as broken icons or be missing entirely."
+                                ),
+                                suggestion=(
+                                    "Either: (1) embed the image as a base64 data URI, "
+                                    "(2) use an absolute file:// URL, or "
+                                    "(3) ensure the SVG file and referenced images are in "
+                                    "the same directory and the renderer's working directory "
+                                    "is set correctly."
+                                ),
+                            )
+                        )
+
+        return errors
+
+    def _is_relative_path(self, href: str) -> bool:
+        """Check if an href value is a relative file path.
+
+        Args:
+            href: The href attribute value to check.
+
+        Returns:
+            True if the href is a relative file path (not a data URI or absolute URL).
+        """
+        # Skip data URIs
+        if DATA_URI_PATTERN.match(href):
+            return False
+
+        # Skip absolute URLs (http, https, file)
+        if ABSOLUTE_URL_PATTERN.match(href):
+            return False
+
+        # Skip fragment-only references (internal references like #id)
+        if href.startswith("#"):
+            return False
+
+        # Everything else is a relative path
+        return True
+
+    def _check_deprecated_xlink_href(
+        self, root: Any, content: str
+    ) -> list[ValidationError]:
+        """Check for deprecated xlink:href attributes.
+
+        The xlink:href attribute is deprecated in SVG 2.0 in favor of the
+        standard href attribute. While browsers still support it for backward
+        compatibility, Inkscape and other tools may handle it differently.
+
+        Args:
+            root: lxml root element.
+            content: Original SVG content for line number extraction.
+
+        Returns:
+            List of ValidationError (warnings) for each xlink:href found.
+        """
+        warnings: list[ValidationError] = []
+        content_lines = content.split("\n")
+
+        for element in root.iter():
+            tag = element.tag
+            # Skip comments and other non-element nodes (their tag is a function)
+            if not isinstance(tag, str):
+                continue
+            local_name = tag.split("}")[-1] if "}" in tag else tag
+
+            # Check if element has xlink:href attribute
+            xlink_href = element.get(f"{{{XLINK_NAMESPACE}}}href")
+
+            if xlink_href is not None:
+                # Try to find the line number
+                line_num = self._find_element_line(element, content_lines)
+
+                # Check if element also has the standard href attribute
+                standard_href = element.get("href")
+                has_both = standard_href is not None
+
+                if has_both:
+                    message = (
+                        f"Element <{local_name}> has both 'href' and 'xlink:href' "
+                        "attributes. The xlink:href attribute is deprecated in SVG 2.0 "
+                        "and may cause inconsistent behavior between renderers."
+                    )
+                    suggestion = (
+                        "Remove the xlink:href attribute and keep only the standard "
+                        "'href' attribute for SVG 2.0 compatibility."
+                    )
+                else:
+                    message = (
+                        f"Element <{local_name}> uses deprecated 'xlink:href' attribute. "
+                        "This attribute is deprecated in SVG 2.0 and may cause "
+                        "inconsistent rendering between browsers and Inkscape."
+                    )
+                    suggestion = (
+                        "Replace 'xlink:href' with the standard 'href' attribute. "
+                        "Also consider removing the xlink namespace declaration if "
+                        "no other xlink attributes are used."
+                    )
+
+                warnings.append(
+                    ValidationError(
+                        line=line_num,
+                        column=None,
+                        message=message,
+                        suggestion=suggestion,
+                    )
+                )
+
+        return warnings
