@@ -1,0 +1,19 @@
+[Unit]
+Description=SVG-MCP Server (Shared HTTP Mode)
+Documentation=https://github.com/adamryczkowski/SVG-MCP
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=__WORKING_DIR__
+ExecStart=__SVG_MCP_PATH__ serve --transport streamable-http --host 127.0.0.1 --port 8081
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

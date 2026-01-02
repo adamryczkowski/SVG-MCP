@@ -239,3 +239,106 @@ diff svg1 svg2 output="diff.png":
     #!/usr/bin/env bash
     set -euo pipefail
     poetry run svg-mcp diff "{{ svg1 }}" "{{ svg2 }}" -o "{{ output }}"
+
+# =============================================================================
+# Shared HTTP Server Mode (for reduced CPU usage with multiple VS Code windows)
+# =============================================================================
+
+# Run MCP server with Streamable HTTP transport (shared mode)
+# This allows multiple VS Code windows to connect to a single server instance,
+# reducing idle CPU usage from ~20% (14 instances) to ~1.3% (1 instance).
+serve-http host="127.0.0.1" port="8081":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Starting SVG-MCP server in shared HTTP mode..."
+    echo "Configure VS Code to connect to: http://{{ host }}:{{ port }}/mcp"
+    poetry run svg-mcp serve --transport streamable-http --host "{{ host }}" --port "{{ port }}"
+
+# Check if SVG-MCP HTTP server is running
+svg-mcp-status port="8081":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if curl -s --max-time 2 "http://127.0.0.1:{{ port }}/mcp" >/dev/null 2>&1; then
+      echo "SVG-MCP HTTP server is running on port {{ port }}"
+    else
+      echo "SVG-MCP HTTP server is NOT running on port {{ port }}"
+      exit 1
+    fi
+
+# Install and enable systemd user service for SVG-MCP HTTP server
+# This creates a service that starts svg-mcp with HTTP transport on login.
+install-systemd-service:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Determine the path to svg-mcp executable
+    SVG_MCP_PATH=""
+    if command -v svg-mcp >/dev/null 2>&1; then
+      SVG_MCP_PATH=$(command -v svg-mcp)
+    elif [ -x "$HOME/.local/bin/svg-mcp" ]; then
+      SVG_MCP_PATH="$HOME/.local/bin/svg-mcp"
+    elif [ -f "$(pwd)/.venv/bin/svg-mcp" ]; then
+      SVG_MCP_PATH="$(pwd)/.venv/bin/svg-mcp"
+    else
+      echo "Error: svg-mcp not found. Install it first with: pipx install ."
+      exit 1
+    fi
+
+    WORKING_DIR="$(pwd)"
+
+    echo "Creating systemd user service..."
+    echo "  Working directory: $WORKING_DIR"
+    echo "  svg-mcp path: $SVG_MCP_PATH"
+
+    # Create service file from template
+    mkdir -p ~/.config/systemd/user/
+    sed -e "s|__WORKING_DIR__|$WORKING_DIR|g" \
+        -e "s|__SVG_MCP_PATH__|$SVG_MCP_PATH|g" \
+        scripts/svg-mcp.service.template > ~/.config/systemd/user/svg-mcp.service
+
+    # Reload systemd
+    systemctl --user daemon-reload
+
+    # Enable the service (starts on login)
+    systemctl --user enable svg-mcp
+
+    # Start the service now
+    systemctl --user start svg-mcp
+
+    echo ""
+    echo "✓ SVG-MCP systemd service installed and started!"
+    echo ""
+    echo "The server is now running at: http://127.0.0.1:8081/mcp"
+    echo ""
+    echo "Useful commands:"
+    echo "  systemctl --user status svg-mcp   # Check status"
+    echo "  systemctl --user stop svg-mcp     # Stop the server"
+    echo "  systemctl --user restart svg-mcp  # Restart the server"
+    echo "  journalctl --user -u svg-mcp -f   # View logs"
+    echo ""
+    echo "To use in VS Code, update your MCP configuration:"
+    echo '  "svg-mcp": {'
+    echo '    "type": "streamable-http",'
+    echo '    "url": "http://127.0.0.1:8081/mcp"'
+    echo '  }'
+
+# Uninstall systemd user service for SVG-MCP HTTP server
+uninstall-systemd-service:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Stopping and disabling SVG-MCP systemd service..."
+
+    # Stop the service if running
+    systemctl --user stop svg-mcp 2>/dev/null || true
+
+    # Disable the service
+    systemctl --user disable svg-mcp 2>/dev/null || true
+
+    # Remove the service file
+    rm -f ~/.config/systemd/user/svg-mcp.service
+
+    # Reload systemd
+    systemctl --user daemon-reload
+
+    echo "✓ SVG-MCP systemd service uninstalled."

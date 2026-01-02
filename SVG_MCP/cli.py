@@ -31,7 +31,7 @@ def cli() -> None:
 @cli.command()
 @click.option(
     "--transport",
-    type=click.Choice(["stdio", "sse"]),
+    type=click.Choice(["stdio", "sse", "streamable-http", "http"]),
     default="stdio",
     help="Transport protocol for the MCP server.",
 )
@@ -39,19 +39,29 @@ def cli() -> None:
     "--port",
     type=int,
     default=8080,
-    help="Port for SSE transport.",
+    help="Port for HTTP/SSE transport.",
 )
 @click.option(
     "--host",
     type=str,
-    default="localhost",
-    help="Host for SSE transport.",
+    default="127.0.0.1",
+    help="Host for HTTP/SSE transport.",
 )
-def serve(transport: str, port: int, host: str) -> None:
+@click.option(
+    "--log-level",
+    type=click.Choice(["debug", "info", "warning", "error"]),
+    default="info",
+    help="Log level for the server.",
+)
+def serve(transport: str, port: int, host: str, log_level: str) -> None:
     """Start the MCP server.
 
     By default, starts the server using stdio transport for use with
     MCP clients like Claude Desktop.
+
+    For shared server mode (multiple VS Code windows connecting to one server),
+    use streamable-http transport. This reduces CPU usage by avoiding multiple
+    server instances.
 
     Examples:
 
@@ -60,13 +70,23 @@ def serve(transport: str, port: int, host: str) -> None:
 
         # Start with SSE transport
         svg-mcp serve --transport sse --port 8080
+
+        # Start with Streamable HTTP transport (recommended for shared mode)
+        svg-mcp serve --transport streamable-http --port 8081
+
+        # Alias for streamable-http
+        svg-mcp serve --transport http --port 8081
     """
     server = create_server()
 
     if transport == "stdio":
         server.run()
-    else:
-        server.run(transport="sse", host=host, port=port)
+    elif transport == "sse":
+        server.run(transport="sse", host=host, port=port, log_level=log_level)
+    elif transport in ("streamable-http", "http"):
+        server.run(
+            transport="streamable-http", host=host, port=port, log_level=log_level
+        )
 
 
 @cli.command()

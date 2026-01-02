@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/servers/main/schemas/mcp-config.json",
+  "mcpServers": {
+    "svg-mcp-shared": {
+      "type": "streamable-http",
+      "url": "http://127.0.0.1:8081/mcp",
+      "description": "SVG-MCP server in shared HTTP mode (single instance for all VS Code windows)"
+    }
+  }
+}

@@ -144,6 +144,48 @@ For development with Poetry:
 }
 ```
 
+### Option 5: Shared HTTP Server (Recommended for Multiple Windows)
+
+If you have multiple VS Code windows open, each one spawns its own MCP server process,
+which can consume significant CPU (~1.3% per instance). To reduce CPU usage, run a
+single shared server that all windows connect to:
+
+**Step 1: Start the shared server**
+
+```bash
+# Using just (recommended)
+just serve-http
+
+# Or directly with poetry
+poetry run svg-mcp serve --transport streamable-http --port 8081
+
+# Or install as a systemd user service for automatic startup
+just install-systemd-service
+systemctl --user enable svg-mcp
+systemctl --user start svg-mcp
+```
+
+**Step 2: Configure VS Code to use the shared server**
+
+```json
+{
+  "mcpServers": {
+    "svg-mcp": {
+      "type": "streamable-http",
+      "url": "http://127.0.0.1:8081/mcp"
+    }
+  }
+}
+```
+
+**Benefits:**
+- Reduces CPU usage from ~20% (14 instances) to ~1.3% (1 instance)
+- Faster startup (server is already running)
+- Easier monitoring and management
+
+**Note:** The shared server must be running before VS Code can connect to it.
+Use the systemd service for automatic startup on login.
+
 ### Configuration Options
 
 Each server configuration supports these parameters:
