@@ -13,6 +13,7 @@ import click
 from SVG_MCP import __version__
 from SVG_MCP.server import create_server
 from SVG_MCP.svg.differ import SVGDiffer
+from SVG_MCP.svg.optimizer import SVGOptimizer
 from SVG_MCP.svg.renderer import SVGRenderer
 from SVG_MCP.svg.validator import SVGValidator
 
@@ -291,6 +292,122 @@ def diff(
 
 
 @cli.command()
+@click.argument("svg_file", type=click.Path(exists=True))
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(),
+    help="Output file path. If not specified, prints to stdout.",
+)
+@click.option(
+    "--preset",
+    type=click.Choice(["safe", "default", "maximum"]),
+    default="default",
+    help="Optimization preset.",
+)
+@click.option(
+    "--precision",
+    type=int,
+    help="Decimal precision for coordinates (1-15).",
+)
+@click.option(
+    "--remove-editor-data/--keep-editor-data",
+    default=None,
+    help="Remove/keep editor-specific data (Inkscape, etc.).",
+)
+@click.option(
+    "--remove-metadata/--keep-metadata",
+    default=None,
+    help="Remove/keep metadata elements.",
+)
+@click.option(
+    "--shorten-ids/--keep-ids",
+    default=None,
+    help="Shorten/keep element IDs.",
+)
+@click.option(
+    "--indent",
+    type=str,
+    help="Indentation string (e.g., '  ' for 2 spaces).",
+)
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["svg", "json"]),
+    default="svg",
+    help="Output format (svg content or json with stats).",
+)
+def optimize(
+    svg_file: str,
+    output: str | None,
+    preset: str,
+    precision: int | None,
+    remove_editor_data: bool | None,
+    remove_metadata: bool | None,
+    shorten_ids: bool | None,
+    indent: str | None,
+    output_format: str,
+) -> None:
+    """Optimize an SVG file using Scour.
+
+    Reduces SVG file size while preserving visual appearance.
+
+    Presets:
+      - safe: Minimal changes, preserves all IDs and editor data
+      - default: Balanced optimization for most use cases
+      - maximum: Aggressive optimization for smallest file size
+
+    Examples:
+
+        # Optimize with default preset
+        svg-mcp optimize input.svg -o output.svg
+
+        # Optimize with maximum compression
+        svg-mcp optimize input.svg -o output.svg --preset maximum
+
+        # Optimize and print to stdout
+        svg-mcp optimize input.svg
+
+        # Get optimization stats as JSON
+        svg-mcp optimize input.svg --format json
+    """
+    optimizer = SVGOptimizer(preset=preset)  # type: ignore
+    input_path = Path(svg_file)
+
+    # Build kwargs for options that were explicitly provided
+    kwargs: dict = {}
+    if precision is not None:
+        kwargs["precision"] = precision
+    if remove_editor_data is not None:
+        kwargs["remove_editor_data"] = remove_editor_data
+    if remove_metadata is not None:
+        kwargs["remove_metadata"] = remove_metadata
+    if shorten_ids is not None:
+        kwargs["shorten_ids"] = shorten_ids
+    if indent is not None:
+        kwargs["indent"] = indent
+
+    result = optimizer.optimize_file(input_path, **kwargs)
+
+    if output_format == "json":
+        click.echo(json.dumps(result.model_dump(), indent=2))
+    elif result.success:
+        if output:
+            output_path = Path(output)
+            output_path.write_text(result.optimized_content or "", encoding="utf-8")
+            click.secho(f"✓ Optimized to {output_path}", fg="green")
+            click.echo(f"  Original size: {result.original_size} bytes")
+            click.echo(f"  Optimized size: {result.optimized_size} bytes")
+            click.echo(f"  Reduction: {result.reduction_percent:.1f}%")
+        else:
+            # Print optimized SVG to stdout
+            click.echo(result.optimized_content)
+    else:
+        click.secho(f"✗ Optimization failed: {result.error}", fg="red")
+        sys.exit(1)
+
+
+@cli.command()
 def info() -> None:
     """Show information about SVG-MCP.
 
@@ -306,6 +423,7 @@ def info() -> None:
     click.echo("  - svg_render: Render SVG to PNG")
     click.echo("  - svg_diff: Compare two SVGs visually")
     click.echo("  - svg_edit: Edit SVG files with validation")
+    click.echo("  - svg_optimize: Optimize SVG using Scour")
     click.echo()
     click.echo("Available MCP Resources:")
     click.echo("  - svg://file/{path}: Access SVG file content")

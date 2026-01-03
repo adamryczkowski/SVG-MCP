@@ -1,5 +1,13 @@
 """Pydantic models for SVG-MCP structured output."""
 
+from .lint_types import (
+    LintIssue,
+    LintPreset,
+    LintResult,
+    LintSeverity,
+    OptimizePreset,
+    OptimizeResult,
+)
 from .types import (
     BoundingBox,
     CoordinateMapping,
@@ -17,6 +25,12 @@ __all__ = [
     "CoordinateMapping",
     "DiffColorScheme",
     "DiffResult",
+    "LintIssue",
+    "LintPreset",
+    "LintResult",
+    "LintSeverity",
+    "OptimizePreset",
+    "OptimizeResult",
     "RenderResult",
     "SVGInfo",
     "ValidationError",

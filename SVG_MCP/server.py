@@ -1,7 +1,7 @@
 """MCP server implementation for SVG operations.
 
 This module provides an MCP server with tools for SVG validation,
-rendering, and visual diff operations.
+rendering, visual diff, and optimization operations.
 """
 
 from pathlib import Path
@@ -10,23 +10,26 @@ from typing import Annotated
 from fastmcp import FastMCP
 from pydantic import Field
 
+from SVG_MCP.models.lint_types import OptimizePreset
 from SVG_MCP.models.types import (
     ViewBox,
 )
 from SVG_MCP.svg.differ import SVGDiffer
+from SVG_MCP.svg.optimizer import SVGOptimizer
 from SVG_MCP.svg.renderer import SVGRenderer
 from SVG_MCP.svg.validator import SVGValidator
 
 # Create the FastMCP server
 mcp = FastMCP(
     "SVG-MCP",
-    instructions="MCP server for SVG file operations - validation, rendering, and visual diff",
+    instructions="MCP server for SVG file operations - validation, rendering, visual diff, and optimization",
 )
 
 # Initialize the SVG processing components
 _validator = SVGValidator()
 _renderer = SVGRenderer()
 _differ = SVGDiffer()
+_optimizer = SVGOptimizer()
 
 
 # ============================================================================
@@ -220,6 +223,49 @@ def _impl_svg_edit(
             "error": f"Failed to edit file: {e}",
             "validation": None,
         }
+
+
+def _impl_svg_optimize(
+    content: str,
+    preset: OptimizePreset = "default",
+    precision: int | None = None,
+    remove_editor_data: bool | None = None,
+    remove_metadata: bool | None = None,
+    shorten_ids: bool | None = None,
+    indent: str | None = None,
+) -> dict:
+    """Implementation of svg_optimize tool.
+
+    Args:
+        content: SVG content as a string.
+        preset: Optimization preset ("safe", "default", "maximum").
+        precision: Decimal precision for coordinates (1-15).
+        remove_editor_data: Remove editor-specific data (Inkscape, etc.).
+        remove_metadata: Remove metadata elements.
+        shorten_ids: Shorten element IDs.
+        indent: Indentation string (e.g., "  " or "\\t").
+
+    Returns:
+        A dictionary containing optimization results.
+    """
+    # Create optimizer with specified preset
+    optimizer = SVGOptimizer(preset=preset)
+
+    # Build kwargs for options that were explicitly provided
+    kwargs: dict = {}
+    if precision is not None:
+        kwargs["precision"] = precision
+    if remove_editor_data is not None:
+        kwargs["remove_editor_data"] = remove_editor_data
+    if remove_metadata is not None:
+        kwargs["remove_metadata"] = remove_metadata
+    if shorten_ids is not None:
+        kwargs["shorten_ids"] = shorten_ids
+    if indent is not None:
+        kwargs["indent"] = indent
+
+    result = optimizer.optimize(content, **kwargs)
+    return result.model_dump()
 
 
 def _impl_svg_file_resource(path: str) -> str:
@@ -448,6 +494,90 @@ def svg_edit(
     """
     return _impl_svg_edit(
         file_path, operation, content, line_start, line_end, validate_after
+    )
+
+
+@mcp.tool
+def svg_optimize(
+    content: Annotated[str, Field(description="SVG content as a string")],
+    preset: Annotated[
+        str,
+        Field(
+            description="Optimization preset: safe (minimal changes), default (balanced), maximum (aggressive)"
+        ),
+    ] = "default",
+    precision: Annotated[
+        int | None,
+        Field(description="Decimal precision for coordinates (1-15)"),
+    ] = None,
+    remove_editor_data: Annotated[
+        bool | None,
+        Field(description="Remove editor-specific data (Inkscape, Illustrator, etc.)"),
+    ] = None,
+    remove_metadata: Annotated[
+        bool | None,
+        Field(description="Remove metadata elements"),
+    ] = None,
+    shorten_ids: Annotated[
+        bool | None,
+        Field(description="Shorten element IDs to reduce file size"),
+    ] = None,
+    indent: Annotated[
+        str | None,
+        Field(
+            description="Indentation string (e.g., '  ' for 2 spaces, '\\t' for tab)"
+        ),
+    ] = None,
+) -> dict:
+    """Optimize SVG content using Scour.
+
+    This tool optimizes SVG content to reduce file size while preserving
+    visual appearance. It uses Scour, a Python-based SVG optimizer.
+
+    Presets:
+    - safe: Minimal changes, preserves all IDs and editor data
+    - default: Balanced optimization for most use cases
+    - maximum: Aggressive optimization for smallest file size
+
+    Args:
+        content: SVG content as a string.
+        preset: Optimization preset (default: "default").
+        precision: Decimal precision for coordinates (optional).
+        remove_editor_data: Remove editor-specific data (optional).
+        remove_metadata: Remove metadata elements (optional).
+        shorten_ids: Shorten element IDs (optional).
+        indent: Indentation string (optional).
+
+    Returns:
+        A dictionary containing:
+        - success: Whether optimization succeeded
+        - optimized_content: The optimized SVG content
+        - original_size: Original content size in bytes
+        - optimized_size: Optimized content size in bytes
+        - size_reduction_percent: Percentage of size reduction
+        - preset_used: The optimization preset that was used
+        - error: Error message if optimization failed
+    """
+    # Validate preset
+    valid_presets = ("safe", "default", "maximum")
+    if preset not in valid_presets:
+        return {
+            "success": False,
+            "optimized_content": None,
+            "original_size": len(content.encode("utf-8")),
+            "optimized_size": 0,
+            "reduction_percent": 0.0,
+            "error": f"Invalid preset: {preset}. Use one of: {', '.join(valid_presets)}",
+        }
+
+    return _impl_svg_optimize(
+        content,
+        preset=preset,  # type: ignore
+        precision=precision,
+        remove_editor_data=remove_editor_data,
+        remove_metadata=remove_metadata,
+        shorten_ids=shorten_ids,
+        indent=indent,
     )
 
 
