@@ -10,6 +10,7 @@ from typing import Any
 
 from SVG_MCP.models.lint_types import LintIssue, LintPreset, LintResult, LintSeverity
 from SVG_MCP.svg.scour_linter import ScourLinter
+from SVG_MCP.svg.svglint_runner import SvglintRunner, svglint_available
 
 
 # Lint presets configuration
@@ -87,6 +88,8 @@ class SVGLinter:
         use_scour: bool | None = None,
         use_svglint: bool | None = None,
         use_custom: bool | None = None,
+        element_rules: dict[str, Any] | None = None,
+        attribute_rules: list[dict[str, Any]] | None = None,
     ) -> LintResult:
         """Lint SVG content using all available backends.
 
@@ -98,6 +101,8 @@ class SVGLinter:
                         (None = use preset default)
             use_custom: Run custom Python rules
                        (None = use preset default)
+            element_rules: Custom element rules for svglint (elm config)
+            attribute_rules: Custom attribute rules for svglint (attr config)
 
         Returns:
             LintResult with all issues found
@@ -124,7 +129,11 @@ class SVGLinter:
 
         # 2. svglint rules (if available)
         if _use_svglint and self._is_svglint_available():
-            svglint_issues = self._run_svglint(content)
+            svglint_issues = self._run_svglint(
+                content,
+                element_rules=element_rules,
+                attribute_rules=attribute_rules,
+            )
             issues.extend(svglint_issues)
 
         # 3. Custom Python rules
@@ -172,29 +181,34 @@ class SVGLinter:
         This is cached after the first check.
         """
         if self._svglint_available is None:
-            try:
-                from SVG_MCP.svg.svglint_runner import SvglintRunner  # type: ignore[import-not-found]
+            self._svglint_available = svglint_available()
+        return self._svglint_available
 
-                self._svglint_available = SvglintRunner.is_available()
-            except ImportError:
-                self._svglint_available = False
-        return self._svglint_available or False
-
-    def _run_svglint(self, content: str) -> list[LintIssue]:
+    def _run_svglint(
+        self,
+        content: str,
+        *,
+        element_rules: dict[str, Any] | None = None,
+        attribute_rules: list[dict[str, Any]] | None = None,
+    ) -> list[LintIssue]:
         """Run svglint on the content.
 
         Args:
             content: SVG content to lint
+            element_rules: Custom element rules for svglint
+            attribute_rules: Custom attribute rules for svglint
 
         Returns:
             List of issues from svglint
         """
         try:
-            from SVG_MCP.svg.svglint_runner import SvglintRunner  # type: ignore[import-not-found]
-
             runner = SvglintRunner()
-            return runner.lint(content)
-        except (ImportError, RuntimeError):
+            return runner.lint(
+                content,
+                element_rules=element_rules,
+                attribute_rules=attribute_rules,
+            )
+        except RuntimeError:
             # svglint not available
             return []
 
@@ -258,17 +272,33 @@ class SVGLinter:
 def lint_svg(
     content: str,
     preset: LintPreset = "default",
-    **kwargs: Any,
+    *,
+    use_scour: bool | None = None,
+    use_svglint: bool | None = None,
+    use_custom: bool | None = None,
+    element_rules: dict[str, Any] | None = None,
+    attribute_rules: list[dict[str, Any]] | None = None,
 ) -> LintResult:
     """Convenience function to lint SVG content.
 
     Args:
         content: SVG content to lint
         preset: Lint preset ('relaxed', 'default', 'strict', 'inkscape')
-        **kwargs: Additional options to pass to SVGLinter.lint()
+        use_scour: Run Scour-based Inkscape compatibility checks
+        use_svglint: Run svglint rules (requires Node.js)
+        use_custom: Run custom Python rules
+        element_rules: Custom element rules for svglint
+        attribute_rules: Custom attribute rules for svglint
 
     Returns:
         LintResult with all issues found
     """
     linter = SVGLinter(preset=preset)
-    return linter.lint(content, **kwargs)
+    return linter.lint(
+        content,
+        use_scour=use_scour,
+        use_svglint=use_svglint,
+        use_custom=use_custom,
+        element_rules=element_rules,
+        attribute_rules=attribute_rules,
+    )

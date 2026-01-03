@@ -275,6 +275,8 @@ def _impl_svg_lint(
     preset: LintPreset = "default",
     use_scour: bool | None = None,
     use_svglint: bool | None = None,
+    element_rules: dict | None = None,
+    attribute_rules: list[dict] | None = None,
 ) -> dict:
     """Implementation of svg_lint tool.
 
@@ -283,6 +285,8 @@ def _impl_svg_lint(
         preset: Lint preset ("relaxed", "default", "strict", "inkscape").
         use_scour: Run Scour-based Inkscape compatibility checks.
         use_svglint: Run svglint rules (requires Node.js).
+        element_rules: Custom element rules for svglint (elm config).
+        attribute_rules: Custom attribute rules for svglint (attr config).
 
     Returns:
         A dictionary containing lint results.
@@ -296,6 +300,10 @@ def _impl_svg_lint(
         kwargs["use_scour"] = use_scour
     if use_svglint is not None:
         kwargs["use_svglint"] = use_svglint
+    if element_rules is not None:
+        kwargs["element_rules"] = element_rules
+    if attribute_rules is not None:
+        kwargs["attribute_rules"] = attribute_rules
 
     result = linter.lint(content, **kwargs)
     return result.model_dump()
@@ -631,6 +639,18 @@ def svg_lint(
         bool | None,
         Field(description="Run svglint rules (requires Node.js)"),
     ] = None,
+    element_rules: Annotated[
+        dict | None,
+        Field(
+            description="Custom element rules for svglint. Keys are CSS selectors, values are true/false/count. Example: {'svg': 1, 'svg > title': 1}"
+        ),
+    ] = None,
+    attribute_rules: Annotated[
+        list[dict] | None,
+        Field(
+            description="Custom attribute rules for svglint. List of rule objects with 'rule::selector' and attribute constraints."
+        ),
+    ] = None,
 ) -> dict:
     """Lint SVG content with configurable rules.
 
@@ -645,11 +665,24 @@ def svg_lint(
     - strict: All checks + required viewBox, title, etc.
     - inkscape: Focus on Inkscape/librsvg compatibility
 
+    Element rules (requires svglint):
+    - Keys are CSS selectors (e.g., 'svg', 'svg > title')
+    - Values: true (must exist), false (must not exist), number (exact count)
+    - Example: {'svg': 1, 'svg > title': 1, 'svg > path': true}
+
+    Attribute rules (requires svglint):
+    - List of rule objects with 'rule::selector' for target element
+    - 'rule::whitelist': true to disallow extra attributes
+    - 'rule::order': true for alphabetical, or array for custom order
+    - Other keys are attribute constraints (string, array, or regex pattern)
+
     Args:
         content: SVG content to lint.
         preset: Lint preset to use (default: "default").
         use_scour: Enable Scour-based Inkscape checks (optional).
         use_svglint: Enable svglint rules (optional, requires Node.js).
+        element_rules: Custom element presence/count rules (optional).
+        attribute_rules: Custom attribute validation rules (optional).
 
     Returns:
         A dictionary containing:
@@ -678,6 +711,8 @@ def svg_lint(
         preset=preset,  # type: ignore
         use_scour=use_scour,
         use_svglint=use_svglint,
+        element_rules=element_rules,
+        attribute_rules=attribute_rules,
     )
 
     # Add convenience counts
