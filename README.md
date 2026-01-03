@@ -23,6 +23,8 @@ SVG-MCP is a specialized MCP server designed to help AI agents (like Claude, GPT
 | **Zoom Rendering** | Render specific regions of an SVG for detailed inspection |
 | **Coordinate Mapping** | Map pixel coordinates to SVG coordinates and vice versa |
 | **Element Counting** | Count and report SVG elements for complexity analysis |
+| **Optimize SVG** | Reduce file size with Scour (Inkscape's optimizer) while preserving appearance |
+| **Lint SVG** | Check for Inkscape/librsvg compatibility issues, enforce element/attribute rules |
 
 ### ❌ What SVG-MCP Cannot Do
 
@@ -32,7 +34,6 @@ SVG-MCP is a specialized MCP server designed to help AI agents (like Claude, GPT
 | **Animate SVGs** | SMIL animations are not rendered (static frame only) |
 | **Load external resources** | External images/fonts are blocked for security |
 | **Convert to other formats** | Only PNG output is supported (no PDF, EPS) |
-| **Optimize SVG** | No minification or optimization (planned for future) |
 
 ## Installation
 
@@ -208,6 +209,9 @@ Each server configuration supports these parameters:
    - `svg_validate` - Validate SVG content
    - `svg_render` - Render SVG to PNG
    - `svg_diff` - Compare two SVGs visually
+   - `svg_edit` - Edit SVG files with validation
+   - `svg_optimize` - Optimize SVG to reduce file size
+   - `svg_lint` - Lint SVG for compatibility issues
 
 ### Troubleshooting
 
@@ -292,6 +296,169 @@ Compare two SVG files visually.
   ]
 }
 ```
+
+### svg_optimize
+
+Optimize SVG content to reduce file size using Scour (Inkscape's built-in optimizer).
+
+```json
+// Input
+{
+  "content": "<svg xmlns='http://www.w3.org/2000/svg'>...</svg>",
+  "preset": "default",
+  "precision": 5,
+  "remove_editor_data": true
+}
+
+// Output
+{
+  "success": true,
+  "optimized_content": "<svg xmlns='http://www.w3.org/2000/svg'>...</svg>",
+  "original_size": 5432,
+  "optimized_size": 2156,
+  "size_reduction_percent": 60.3,
+  "preset_used": "default"
+}
+```
+
+**Optimization Presets:**
+
+| Preset | Description |
+|--------|-------------|
+| `safe` | Conservative - preserves all IDs and editor data, high precision |
+| `default` | Balanced - removes editor data, standard precision (5 digits) |
+| `maximum` | Aggressive - removes everything, low precision, minified output |
+
+**Options:**
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `precision` | int | Decimal precision for coordinates (1-15) |
+| `remove_editor_data` | bool | Remove Inkscape/Sodipodi/Adobe metadata |
+| `remove_metadata` | bool | Remove `<metadata>` elements |
+| `shorten_ids` | bool | Shorten element IDs to reduce size |
+| `indent` | string | Indentation string (e.g., `"  "` or `"\t"`) |
+
+### svg_lint
+
+Lint SVG content for compatibility issues and enforce rules.
+
+```json
+// Input
+{
+  "content": "<svg xmlns='http://www.w3.org/2000/svg'>...</svg>",
+  "preset": "default",
+  "use_scour": true,
+  "use_svglint": true,
+  "element_rules": {"svg > title": 1},
+  "attribute_rules": [{"rule::selector": "svg", "viewBox": true}]
+}
+
+// Output
+{
+  "valid": true,
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "deprecated/xlink-href",
+      "message": "Deprecated xlink:href found. SVG 2 uses plain href.",
+      "line": 5,
+      "suggestion": "Replace xlink:href with href"
+    }
+  ],
+  "error_count": 0,
+  "warning_count": 1
+}
+```
+
+**Lint Presets:**
+
+| Preset | Description |
+|--------|-------------|
+| `relaxed` | Basic XML validity only |
+| `default` | Standard checks + Inkscape compatibility |
+| `strict` | All checks + required viewBox, title, accessibility |
+| `inkscape` | Focus on Inkscape/librsvg compatibility |
+
+**Scour-based Checks (Python, always available):**
+
+- Flowtext detection (Inkscape-specific, won't render in browsers)
+- Namespace issues (Inkscape, Sodipodi, Adobe namespaces)
+- Deprecated xlink:href usage
+- Embedded base64 images
+- Relative paths that may break
+- Renderer-specific issues
+- Excessive numeric precision
+
+**svglint Checks (Node.js, optional):**
+
+Requires Node.js and svglint. See [Optional: svglint Setup](#optional-svglint-setup).
+
+- Element rules: Enforce element presence/count with CSS selectors
+- Attribute rules: Validate attribute values and order
+- XML validation
+
+**Element Rules Example:**
+
+```json
+{
+  "element_rules": {
+    "svg": 1,           // Exactly 1 <svg> element
+    "svg > title": 1,   // Exactly 1 <title> as direct child
+    "svg > path": true, // At least 1 <path>
+    "script": false     // No <script> elements allowed
+  }
+}
+```
+
+**Attribute Rules Example:**
+
+```json
+{
+  "attribute_rules": [
+    {
+      "rule::selector": "svg",
+      "xmlns": "http://www.w3.org/2000/svg",
+      "viewBox": true,
+      "rule::whitelist": true
+    }
+  ]
+}
+```
+
+## Optional: svglint Setup
+
+The `svg_lint` tool can optionally use [svglint](https://github.com/simple-icons/svglint) for advanced element and attribute rules. This requires Node.js.
+
+### Using mise (Recommended)
+
+```bash
+# Install Node.js via mise
+mise install node@22
+
+# Install svglint globally
+npm install -g svglint
+
+# Verify installation
+svglint --version
+```
+
+### Using System Node.js
+
+```bash
+# Install svglint globally
+npm install -g svglint
+
+# Or use npx (no global install needed)
+npx svglint --version
+```
+
+### Graceful Degradation
+
+If Node.js or svglint is not installed:
+- The `svg_lint` tool will still work with Scour-based checks
+- `element_rules` and `attribute_rules` will be ignored
+- A warning will be logged about missing svglint
 
 ## Use Cases
 
@@ -395,6 +562,14 @@ svg-mcp render input.svg output.png --width 800 --height 600
 
 # Compare two SVGs
 svg-mcp diff old.svg new.svg --output diff.png
+
+# Optimize an SVG file
+svg-mcp optimize input.svg -o output.svg --preset default
+svg-mcp optimize input.svg -o output.svg --precision 3 --remove-editor-data
+
+# Lint an SVG file
+svg-mcp lint input.svg --preset strict
+svg-mcp lint input.svg --preset inkscape
 ```
 
 ## Development
@@ -448,9 +623,14 @@ SVG-MCP/
 │   ├── svg/
 │   │   ├── validator.py   # SVG validation
 │   │   ├── renderer.py    # SVG to PNG rendering
-│   │   └── differ.py      # Visual diff
+│   │   ├── differ.py      # Visual diff
+│   │   ├── optimizer.py   # SVG optimization (Scour wrapper)
+│   │   ├── linter.py      # Unified SVG linter
+│   │   ├── scour_linter.py    # Scour-based compatibility checks
+│   │   └── svglint_runner.py  # svglint subprocess wrapper
 │   └── models/
-│       └── types.py       # Pydantic models
+│       ├── types.py       # Pydantic models
+│       └── lint_types.py  # Lint/optimize result models
 ├── tests/
 │   ├── unit/              # Unit tests
 │   ├── integration/       # Integration tests
@@ -473,6 +653,13 @@ SVG-MCP/
 | pixelmatch | Pixel-level image comparison |
 | Pillow | Image manipulation |
 | click | CLI framework |
+| scour | SVG optimization and cleanup (Inkscape's optimizer) |
+
+### Optional Dependencies
+
+| Library | Purpose |
+|---------|---------|
+| svglint (Node.js) | Advanced element/attribute rules enforcement |
 
 ## Security Considerations
 
