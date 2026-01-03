@@ -13,6 +13,7 @@ import click
 from SVG_MCP import __version__
 from SVG_MCP.server import create_server
 from SVG_MCP.svg.differ import SVGDiffer
+from SVG_MCP.svg.linter import SVGLinter
 from SVG_MCP.svg.optimizer import SVGOptimizer
 from SVG_MCP.svg.renderer import SVGRenderer
 from SVG_MCP.svg.validator import SVGValidator
@@ -408,6 +409,120 @@ def optimize(
 
 
 @cli.command()
+@click.argument("svg_file", type=click.Path(exists=True))
+@click.option(
+    "--preset",
+    type=click.Choice(["relaxed", "default", "strict", "inkscape"]),
+    default="default",
+    help="Lint preset.",
+)
+@click.option(
+    "--use-scour/--no-scour",
+    default=None,
+    help="Enable/disable Scour-based Inkscape compatibility checks.",
+)
+@click.option(
+    "--use-svglint/--no-svglint",
+    default=None,
+    help="Enable/disable svglint rules (requires Node.js).",
+)
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format.",
+)
+def lint(
+    svg_file: str,
+    preset: str,
+    use_scour: bool | None,
+    use_svglint: bool | None,
+    output_format: str,
+) -> None:
+    """Lint an SVG file for issues.
+
+    Checks the SVG file for compatibility issues, best practices,
+    and potential problems.
+
+    Presets:
+      - relaxed: Basic XML validity only
+      - default: Standard checks + Inkscape compatibility
+      - strict: All checks + required viewBox, title, etc.
+      - inkscape: Focus on Inkscape/librsvg compatibility
+
+    Examples:
+
+        # Lint with default preset
+        svg-mcp lint input.svg
+
+        # Lint with strict preset
+        svg-mcp lint input.svg --preset strict
+
+        # Lint focusing on Inkscape compatibility
+        svg-mcp lint input.svg --preset inkscape
+
+        # Get lint results as JSON
+        svg-mcp lint input.svg --format json
+    """
+    linter = SVGLinter(preset=preset)  # type: ignore
+    input_path = Path(svg_file)
+
+    # Build kwargs for options that were explicitly provided
+    kwargs: dict = {}
+    if use_scour is not None:
+        kwargs["use_scour"] = use_scour
+    if use_svglint is not None:
+        kwargs["use_svglint"] = use_svglint
+
+    result = linter.lint_file(str(input_path), **kwargs)
+
+    if output_format == "json":
+        click.echo(json.dumps(result.model_dump(), indent=2))
+    else:
+        if result.valid:
+            click.secho("✓ SVG passed linting", fg="green")
+        else:
+            click.secho("✗ SVG has issues", fg="red")
+
+        # Group issues by severity
+        errors = [i for i in result.issues if i.severity.value == "error"]
+        warnings = [i for i in result.issues if i.severity.value == "warning"]
+        infos = [i for i in result.issues if i.severity.value == "info"]
+
+        if errors:
+            click.secho(f"\nErrors ({len(errors)}):", fg="red")
+            for issue in errors:
+                location = f" (line {issue.line})" if issue.line else ""
+                click.echo(f"  [{issue.code}]{location}: {issue.message}")
+                if issue.suggestion:
+                    click.echo(f"    → {issue.suggestion}")
+
+        if warnings:
+            click.secho(f"\nWarnings ({len(warnings)}):", fg="yellow")
+            for issue in warnings:
+                location = f" (line {issue.line})" if issue.line else ""
+                click.echo(f"  [{issue.code}]{location}: {issue.message}")
+                if issue.suggestion:
+                    click.echo(f"    → {issue.suggestion}")
+
+        if infos:
+            click.secho(f"\nInfo ({len(infos)}):", fg="blue")
+            for issue in infos:
+                location = f" (line {issue.line})" if issue.line else ""
+                click.echo(f"  [{issue.code}]{location}: {issue.message}")
+                if issue.suggestion:
+                    click.echo(f"    → {issue.suggestion}")
+
+        if not result.issues:
+            click.echo("  No issues found.")
+
+    # Exit with error code if not valid
+    if not result.valid:
+        sys.exit(1)
+
+
+@cli.command()
 def info() -> None:
     """Show information about SVG-MCP.
 
@@ -424,6 +539,7 @@ def info() -> None:
     click.echo("  - svg_diff: Compare two SVGs visually")
     click.echo("  - svg_edit: Edit SVG files with validation")
     click.echo("  - svg_optimize: Optimize SVG using Scour")
+    click.echo("  - svg_lint: Lint SVG for issues")
     click.echo()
     click.echo("Available MCP Resources:")
     click.echo("  - svg://file/{path}: Access SVG file content")

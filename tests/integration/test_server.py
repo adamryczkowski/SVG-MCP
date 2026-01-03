@@ -22,12 +22,13 @@ class TestServerInitialization:
         assert "svg_diff" in tool_names
         assert "svg_edit" in tool_names
         assert "svg_optimize" in tool_names
+        assert "svg_lint" in tool_names
 
     def test_server_tool_count(self) -> None:
-        """Test that server has exactly 5 tools."""
+        """Test that server has exactly 6 tools."""
         server = create_server()
         tool_count = len(server._tool_manager._tools)
-        assert tool_count == 5
+        assert tool_count == 6
 
 
 class TestServerToolSchemas:

@@ -1,7 +1,7 @@
 """MCP server implementation for SVG operations.
 
 This module provides an MCP server with tools for SVG validation,
-rendering, visual diff, and optimization operations.
+rendering, visual diff, optimization, and linting operations.
 """
 
 from pathlib import Path
@@ -10,11 +10,12 @@ from typing import Annotated
 from fastmcp import FastMCP
 from pydantic import Field
 
-from SVG_MCP.models.lint_types import OptimizePreset
+from SVG_MCP.models.lint_types import LintPreset, OptimizePreset
 from SVG_MCP.models.types import (
     ViewBox,
 )
 from SVG_MCP.svg.differ import SVGDiffer
+from SVG_MCP.svg.linter import SVGLinter
 from SVG_MCP.svg.optimizer import SVGOptimizer
 from SVG_MCP.svg.renderer import SVGRenderer
 from SVG_MCP.svg.validator import SVGValidator
@@ -22,7 +23,7 @@ from SVG_MCP.svg.validator import SVGValidator
 # Create the FastMCP server
 mcp = FastMCP(
     "SVG-MCP",
-    instructions="MCP server for SVG file operations - validation, rendering, visual diff, and optimization",
+    instructions="MCP server for SVG file operations - validation, rendering, visual diff, optimization, and linting",
 )
 
 # Initialize the SVG processing components
@@ -30,6 +31,7 @@ _validator = SVGValidator()
 _renderer = SVGRenderer()
 _differ = SVGDiffer()
 _optimizer = SVGOptimizer()
+_linter = SVGLinter()
 
 
 # ============================================================================
@@ -265,6 +267,37 @@ def _impl_svg_optimize(
         kwargs["indent"] = indent
 
     result = optimizer.optimize(content, **kwargs)
+    return result.model_dump()
+
+
+def _impl_svg_lint(
+    content: str,
+    preset: LintPreset = "default",
+    use_scour: bool | None = None,
+    use_svglint: bool | None = None,
+) -> dict:
+    """Implementation of svg_lint tool.
+
+    Args:
+        content: SVG content as a string.
+        preset: Lint preset ("relaxed", "default", "strict", "inkscape").
+        use_scour: Run Scour-based Inkscape compatibility checks.
+        use_svglint: Run svglint rules (requires Node.js).
+
+    Returns:
+        A dictionary containing lint results.
+    """
+    # Create linter with specified preset
+    linter = SVGLinter(preset=preset)
+
+    # Build kwargs for options that were explicitly provided
+    kwargs: dict = {}
+    if use_scour is not None:
+        kwargs["use_scour"] = use_scour
+    if use_svglint is not None:
+        kwargs["use_svglint"] = use_svglint
+
+    result = linter.lint(content, **kwargs)
     return result.model_dump()
 
 
@@ -579,6 +612,80 @@ def svg_optimize(
         shorten_ids=shorten_ids,
         indent=indent,
     )
+
+
+@mcp.tool
+def svg_lint(
+    content: Annotated[str, Field(description="SVG content as a string")],
+    preset: Annotated[
+        str,
+        Field(
+            description="Lint preset: relaxed (basic), default (standard), strict (all checks), inkscape (compatibility)"
+        ),
+    ] = "default",
+    use_scour: Annotated[
+        bool | None,
+        Field(description="Run Scour-based Inkscape/librsvg compatibility checks"),
+    ] = None,
+    use_svglint: Annotated[
+        bool | None,
+        Field(description="Run svglint rules (requires Node.js)"),
+    ] = None,
+) -> dict:
+    """Lint SVG content with configurable rules.
+
+    This tool combines multiple linting backends:
+    1. Scour-based Inkscape/librsvg compatibility checks
+    2. svglint configurable element/attribute rules (requires Node.js)
+    3. Built-in SVG-MCP validation rules
+
+    Presets:
+    - relaxed: Basic XML validity only
+    - default: Standard checks + Inkscape compatibility
+    - strict: All checks + required viewBox, title, etc.
+    - inkscape: Focus on Inkscape/librsvg compatibility
+
+    Args:
+        content: SVG content to lint.
+        preset: Lint preset to use (default: "default").
+        use_scour: Enable Scour-based Inkscape checks (optional).
+        use_svglint: Enable svglint rules (optional, requires Node.js).
+
+    Returns:
+        A dictionary containing:
+        - valid: Whether the SVG passed linting (no errors)
+        - issues: List of all issues found with severity, code, message
+        - error_count: Number of errors
+        - warning_count: Number of warnings
+    """
+    # Validate preset
+    valid_presets = ("relaxed", "default", "strict", "inkscape")
+    if preset not in valid_presets:
+        return {
+            "valid": False,
+            "issues": [
+                {
+                    "severity": "error",
+                    "code": "lint/invalid-preset",
+                    "message": f"Invalid preset: {preset}. Use one of: {', '.join(valid_presets)}",
+                    "source": "linter",
+                }
+            ],
+        }
+
+    result = _impl_svg_lint(
+        content,
+        preset=preset,  # type: ignore
+        use_scour=use_scour,
+        use_svglint=use_svglint,
+    )
+
+    # Add convenience counts
+    issues = result.get("issues", [])
+    result["error_count"] = sum(1 for i in issues if i.get("severity") == "error")
+    result["warning_count"] = sum(1 for i in issues if i.get("severity") == "warning")
+
+    return result
 
 
 # ============================================================================
