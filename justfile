@@ -267,24 +267,30 @@ svg-mcp-status port="8081":
 
 # Install and enable systemd user service for SVG-MCP HTTP server
 # This creates a service that starts svg-mcp with HTTP transport on login.
+# Always installs/updates svg-mcp via pipx to ensure the latest version is used.
 install-systemd-service:
     #!/usr/bin/env bash
     set -euo pipefail
 
-    # Determine the path to svg-mcp executable
-    SVG_MCP_PATH=""
-    if command -v svg-mcp >/dev/null 2>&1; then
-      SVG_MCP_PATH=$(command -v svg-mcp)
-    elif [ -x "$HOME/.local/bin/svg-mcp" ]; then
-      SVG_MCP_PATH="$HOME/.local/bin/svg-mcp"
-    elif [ -f "$(pwd)/.venv/bin/svg-mcp" ]; then
-      SVG_MCP_PATH="$(pwd)/.venv/bin/svg-mcp"
+    WORKING_DIR="$(pwd)"
+
+    # Always install/update svg-mcp via pipx from current directory
+    # This ensures the systemd service uses the latest version
+    echo "Installing/updating svg-mcp via pipx..."
+    if pipx list 2>/dev/null | grep -q "svg-mcp"; then
+      # Package exists, reinstall to update
+      pipx install --force "$WORKING_DIR"
     else
-      echo "Error: svg-mcp not found. Install it first with: pipx install ."
-      exit 1
+      # Fresh install
+      pipx install "$WORKING_DIR"
     fi
 
-    WORKING_DIR="$(pwd)"
+    # Use the pipx-installed svg-mcp
+    SVG_MCP_PATH="$HOME/.local/bin/svg-mcp"
+    if [ ! -x "$SVG_MCP_PATH" ]; then
+      echo "Error: svg-mcp not found at $SVG_MCP_PATH after pipx install"
+      exit 1
+    fi
 
     echo "Creating systemd user service..."
     echo "  Working directory: $WORKING_DIR"
